@@ -3,7 +3,7 @@ import sys
 import os
 
 
-input_sheet_path = r"D:\GITHUB\IRCS\IRCS3_build\Input Sheet_IRCS3.xlsx"
+input_sheet_path = r"D:\Run Control 3\Input Sheet_IRCS3.xlsx"
 
 
 

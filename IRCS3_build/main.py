@@ -271,7 +271,8 @@ def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
 
     header_diff_tablerow = ['GOC', 'DV # of Policies', 'DV SA', 'RAFM # of Policies', 'RAFM SA', 'Diff # of Policies', 'Diff SA']
     tablecol_fmt = wb.add_format({'bold': True, 'underline': True, 'bg_color':'#92D050'})
-    
+    fmt_number = wb.add_format({'num_format': number_format})
+
     # Summary formats (green background)
     summary_number_fmt = wb.add_format({'num_format': number_format, 'bg_color': '#92D050', 'bold': True})
     
@@ -288,7 +289,17 @@ def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
         standard = convert_trad_result_to_standard(tr)
         df_list = standard['tables']
         sum_list = standard['summaries']
-        col_starts = [1, 9, 17, 25, 33]  # B, J, R, Z, AH
+        col_starts = [1, 9, 17, 25, 33]  
+
+        for col in range(2, 8):
+            col_letter = xl_col_to_name(col)
+            col_plus_8 = xl_col_to_name(col + 8)
+            col_plus_16 = xl_col_to_name(col + 16)
+            col_plus_24 = xl_col_to_name(col + 24)
+            col_plus_32 = xl_col_to_name(col + 32)
+            
+            formula = f"={col_letter}6-{col_plus_8}4-{col_plus_16}4-{col_plus_24}4-{col_plus_32}4"
+            ws.write_formula(1, col, formula, fmt_number)
 
         for idx, (df, summary) in enumerate(zip(df_list, sum_list)):
             ws.set_column(col_starts[idx], col_starts[idx] + 6, 20)
@@ -391,7 +402,7 @@ def write_ul_results_to_excel(ul_results, input_config: InputSheetConfig):
     center_merge = wb.add_format({'bold': True, 'align': 'center'})
     border_yellow = wb.add_format({'bold': True, 'bg_color': 'yellow', 'border': 1})
     border_number = wb.add_format({'num_format': number_format, 'border': 1})
-
+    fmt_number = wb.add_format({'num_format': number_format})
     ws.write(0, 0, 'Valuation Year', bold)
     ws.write(1, 0, 'Valuation Month', bold)
     ws.write(2, 0, 'FX Rate ValDate', bold)
@@ -461,6 +472,14 @@ def write_ul_results_to_excel(ul_results, input_config: InputSheetConfig):
             max_len = len(df_list)
             col_starts = [1 + 8 * i for i in range(max_len)]
 
+            for col in range(2, 8):
+                col_letter = xl_col_to_name(col)
+                col_plus_8 = xl_col_to_name(col + 8)
+                
+                formula = f"={col_letter}6-{col_plus_8}4"
+                ws.write_formula(1, col, formula, fmt_number)
+
+
             for idx in range(max_len):
                 df = df_list[idx] if idx < len(df_list) else None
                 summary = sum_list[idx] if idx < len(sum_list) else None
@@ -471,7 +490,7 @@ def write_ul_results_to_excel(ul_results, input_config: InputSheetConfig):
                 ws.set_column(col_starts[idx], col_starts[idx], 40)
 
                 for c, item in enumerate(header_diff_tablerow):
-                    ws.write(2, col_starts[idx] + c, item, tablecol_fmt)
+                    ws.write(2, col_starts[idx] + c, item, wb.add_format({'bold': True, 'underline': True}))
 
                 row_titles = ['Total All from DV', 'Grand Total Summary', 'Check']
                 if idx == 1:

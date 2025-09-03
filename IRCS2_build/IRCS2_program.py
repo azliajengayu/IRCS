@@ -368,9 +368,9 @@ wtrad.conditional_format('Q11:T999', {
 wcampaign = wb.add_worksheet("SUMMARY_CAMPAIGN")
 wcampaign.set_column(1, 1, 14)
 wcampaign.set_column(2, 2, 8)
-wcampaign.set_column(3, 7, max_len)
+wcampaign.set_column(3, 14, max_len)
 
-header_campaign = ["PRODUCT_CD", "CURRENCY", "GROUPING RAW DATA", "GROUPING DV", "SUM_ASSURED", "Bonus SA", "SA After Bonus"]
+header_campaign = ["PRODUCT_CD", "CURRENCY", "GROUPING RAW DATA", "GROUPING DV", "SUM_ASSURED", "Bonus SA", "SA After Bonus","SA Raw Data","SA IT_AZTRAD_FULL_Stat", "Diff Raw Data and IT", "SA DV Output", "Diff IT and DV", "Diff"]
 header_campaign_frm = wb.add_format({'bold': True, 
                                     'align': 'left',
                                     'top': 1, 'top_color':'black', 'bottom': 1,
@@ -385,21 +385,48 @@ header_campaign_frm_tail = wb.add_format({'bold': True, 'bg_color': "#8CA5D8", '
 header_len = len(header_campaign)
 for c, h in enumerate(header_campaign):
     wcampaign.write(1, c + 1, h, header_campaign_frm_tail)
-for c, h in enumerate(header_campaign[:header_len - 2]):
+for c, h in enumerate(header_campaign[:header_len - 9]):
     wcampaign.write(1,c + 1, h, header_campaign_frm)
 
 campaign_sum = trad.campaign_sum
-campaign_sum['Currency'] = campaign_sum['Grouping Raw Data'].str[-3:]
-campaign_sum['Product_Cd'] = "BASE_" + campaign_sum['Grouping Raw Data'].str[0:-4]
-cols = campaign_sum.columns.tolist()
-new_order = ['Product_Cd', 'Currency'] + [c for c in cols if c not in ('Product_Cd', 'Currency')]
-campaign_sum = campaign_sum[new_order]
 
+campaign_sum = trad.campaign_sum
+cell_fmt = wb.add_format({
+    'num_format': number_format,
+    'top': 1, 'top_color':'black',
+    'bottom': 1, 'bottom_color': 'black',
+    'left': 1, 'left_color': 'black',
+    'right': 1, 'right_color': 'black'
+})
 for x in range(len(campaign_sum)):
     for c, item_ in enumerate(campaign_sum.iloc[x]):
-        wcampaign.write(2 + x, c + 1, item_, wb.add_format({'num_format': number_format,'top': 1, 'top_color':'black', 'bottom': 1,
-                                    'bottom_color': 'black', 'left': 1,'left_color': 'black',
-                                    'right': 1,'right_color': 'black'}))
+        wcampaign.write(2 + x, c + 1, item_, 
+                        wb.add_format({'num_format': number_format,
+                                       'top': 1, 'top_color':'black', 'bottom': 1,
+                                       'bottom_color': 'black', 'left': 1,'left_color': 'black',
+                                       'right': 1,'right_color': 'black'}))
+
+    row_excel = 2 + x + 1  
+    
+    col_lookup_key = 3   
+    col_SA_raw     = 9  
+    col_IT         = 10
+    col_diff_raw   = 11  
+    col_DV         = 12
+    col_diff_it_dv = 13 
+    col_diff       = 14 
+
+    wcampaign.write_formula(row_excel-1, col_IT-1,
+        f'=VLOOKUP($D{row_excel},Summary_Checking_TRAD!$D:$J,7,FALSE)',cell_fmt)
+    wcampaign.write_formula(row_excel-1, col_diff_raw-1,
+        f'=$J{row_excel}-$I{row_excel}',cell_fmt)
+    wcampaign.write_formula(row_excel-1, col_DV-1,
+        f'=VLOOKUP($D{row_excel},Summary_Checking_TRAD!$D:$F,3,FALSE)',cell_fmt)
+    wcampaign.write_formula(row_excel-1, col_diff_it_dv-1,
+        f'=$L{row_excel}-$J{row_excel}',cell_fmt)
+    wcampaign.write_formula(row_excel-1, col_diff-1,
+        f'=$M{row_excel}-$G{row_excel}',cell_fmt)
+
 
 # CONTROL_2_SUMMARY SHEET
 wsum = wb.add_worksheet("CONTROL_2_SUMMARY")

@@ -281,7 +281,25 @@ summary = summary.drop(columns=["product","currency"])
 cols = ["Grouping Raw Data", "Grouping DV"] + [col for col in summary.columns if col not in ["Grouping Raw Data", "Grouping DV"]]
 summary = summary[cols]
 
-campaign_sum = summary.copy()
+tradcon_tes = tradcon.drop(columns=['POLICY_REF','COVER_CODE'])
+tradcon_tes['PRODUCT_CODE'] = tradcon_tes['PRODUCT_CODE']+"_"+tradcon_tes['CURRENCY1']
+tradcon_tes = tradcon_tes.drop(columns=['CURRENCY1'])
+tradcon_tes = tradcon_tes.groupby(["PRODUCT_CODE"],as_index=False).sum(numeric_only=True)
+
+tradsha_tes = tradsha.drop(columns=['POLICY_REF','COVER_CODE'])
+tradsha_tes['PRODUCT_CODE'] = tradsha_tes['PRODUCT_CODE']+"_"+tradsha_tes['CURRENCY1']
+tradsha_tes = tradsha_tes.drop(columns=['CURRENCY1'])
+tradsha_tes = tradsha_tes.groupby(["PRODUCT_CODE"],as_index=False).sum(numeric_only=True)
+
+merged_SA = pd.concat([tradcon_tes,tradsha_tes])
+merged_SA = merged_SA.rename(columns= {'PRODUCT_CODE':'Grouping Raw Data','SUM_INSURED':'SA Raw Data'})
+
+campaign_sum = pd.merge(summary,merged_SA,on='Grouping Raw Data',how = 'left')
+campaign_sum['Currency'] = campaign_sum['Grouping Raw Data'].str[-3:]
+campaign_sum['Product_Cd'] = "BASE_" + campaign_sum['Grouping Raw Data'].str[0:-4]
+cols = campaign_sum.columns.tolist()
+new_order = ['Product_Cd', 'Currency'] + [c for c in cols if c not in ('Product_Cd', 'Currency')]
+campaign_sum = campaign_sum[new_order]
 
 bsi_raw = pd.read_excel(input_sheet.BSI_ATTRIBUSI_path, sheet_name = ["Export Worksheet"], engine="openpyxl")
 bsi_raw = bsi_raw["Export Worksheet"]
