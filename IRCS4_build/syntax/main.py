@@ -70,8 +70,6 @@ def process_input_file(file_path):
 
             workbook = writer.book
             worksheet = writer.sheets[sheet_name]
-
-            # Skip formatting for 'Control' sheet
             if sheet_name != 'Control':
                 format_accounting = workbook.add_format({
                     'num_format': '_-* #,##0_-;_-* (#,##0);_-* "-"_-;_-@_-'
