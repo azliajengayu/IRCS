@@ -126,24 +126,18 @@ def apply_filters(df, params):
     filtered_df.columns = [column_mapping.get(col.lower(), col) for col in filtered_df.columns]
     return filtered_df
 
-def filter_goc_by_code(df, codes):
+def filter_goc_by_code(df, code):
     if df.empty:
         return df
-
+    
     df_processed, _ = make_columns_case_insensitive(df)
     goc_col = 'goc'
-
+    
     if goc_col not in df_processed.columns:
         return df
-
-    if isinstance(codes, str):
-        pattern = codes
-    else:
-        pattern = "|".join(map(re.escape, codes))
-
-    mask = df_processed[goc_col].str.contains(pattern, case=False, na=False)
+    
+    mask = df_processed[goc_col].str.contains(code, case=False, na=False)
     return df[mask].copy()
-
 
 
 def exclude_goc_by_code(df, code):
@@ -239,6 +233,7 @@ def run_trad(params):
                 
         dv_trad_processed, dv_column_mapping = make_columns_case_insensitive(dv_trad)
         
+        # Apply filters
         dv_trad_total = apply_filters(dv_trad_processed, params)
         
         columns_to_drop = ['product_group', 'pre_ann', 'loan_sa']
@@ -359,11 +354,10 @@ def run_trad(params):
             run_rafm_usd = run_rafm_usd.drop(columns=["period"])
 
         run_rafm_only = pd.concat([run_rafm_idr, run_rafm_usd], ignore_index=True)
-
+        run_rafm_only = apply_filters(run_rafm_only, params)
         if not run_rafm_only.empty:
             run_rafm_only = clean_numeric_column(run_rafm_only, 'pol_b')
             run_rafm_only = clean_numeric_column(run_rafm_only, 'cov_units')
-
             goc_col_rafm = None
             for col in run_rafm_only.columns:
                 if col.lower() == 'goc':
@@ -428,16 +422,24 @@ def run_trad(params):
                 safe_sum(dv_trad_total, 'sum_assd') - safe_sum(merged, 'cov_units'),
             ]
         })
-
         # TABEL 2: CC%
         tabel_2 = filter_goc_by_code(merged, 'CC%')
-
+    
         # TABEL 3: H_IDR_NO
-        tabel_3 = filter_goc_by_code(merged, ['H_IDR_NO','H_USD_NO'])
+        produk_tertentu_list = combine_filters(
+            parse_multi_values(params.get('only_channel', '')),
+            parse_multi_values(params.get('only_currency', '')),
+            parse_multi_values(params.get('only_portfolio', '')),
+        )
+
+        filter_code = 'H_IDR_NO'
+        if any(p.upper() in ['SN', 'SI'] for p in produk_tertentu_list):
+            filter_code = 'H_IDR'
+        tabel_3 = filter_goc_by_code(merged, filter_code)
         if not tabel_3.empty:
             tabel_3_processed = tabel_3.copy()
             tabel_3_processed[goc_column] = tabel_3_processed[goc_column].apply(
-                lambda x: '_'.join(str(x).split('_')[0:4]) if str(x).startswith('H_IDR_NO') else x
+                lambda x: '_'.join(str(x).split('_')[0:4]) if str(x).startswith(filter_code) else x
             )
             tabel_3_processed = tabel_3_processed.groupby([goc_column], as_index=False).sum(numeric_only=True)
             tabel_3 = tabel_3_processed
@@ -480,7 +482,7 @@ def run_ul(params):
     try:
         path_dv = params.get('path_dv', '')
         path_rafm = params.get('path_rafm', '')
-        path_uvsg = params.get('path_uvsg', '')  
+        path_uvsg = params.get('path_uvsg', '')
         
         if not path_dv or not os.path.isfile(path_dv):
             return {"error": f"File DV tidak ditemukan atau path kosong: {path_dv}"}
@@ -495,9 +497,7 @@ def run_ul(params):
         
         if dv_ul.empty:
             return {"error": "File DV kosong atau tidak dapat dibaca"} 
-
         dv_ul_total = apply_filters(dv_ul, params)
-        
         columns_to_drop = ['product_group', 'pre_ann', 'sum_assur']
         columns_to_drop_lower = [col.lower() for col in columns_to_drop]
         
@@ -507,6 +507,7 @@ def run_ul(params):
                 existing_columns_to_drop.append(col)
         
         dv_ul_total = dv_ul_total.drop(columns=existing_columns_to_drop, errors='ignore')
+
         goc_column = None
         for col in dv_ul_total.columns:
             if col.lower() == 'goc':
@@ -551,8 +552,6 @@ def run_ul(params):
                 usd_rate = usd_rate.astype(float)
             elif isinstance(usd_rate, str):
                 usd_rate = float(usd_rate)
-
-                    
         total_fund_column = None
         for col in dv_ul_total.columns:
             if col.lower() == 'total_fund':
@@ -578,6 +577,7 @@ def run_ul(params):
             run_rafm_usd = run_rafm_usd.drop(columns=["period"])
 
         run_rafm_only = pd.concat([run_rafm_idr, run_rafm_usd], ignore_index=True)
+        run_rafm_only = apply_filters(run_rafm_only, params)
         if not run_rafm_only.empty:
             run_rafm_only = clean_numeric_column(run_rafm_only, 'pol_b')
             run_rafm_only = clean_numeric_column(run_rafm_only, 'rv_av_if')
@@ -623,7 +623,6 @@ def run_ul(params):
                     run_uvsg = run_uvsg.rename(columns={goc_col_uvsg: goc_column})
         else:
             print("UVSG file not provided or not found - skipping UVSG processing")
-
         run_rafm = pd.concat([run_rafm_no_gs, run_uvsg], ignore_index=True) if not run_rafm_no_gs.empty or not run_uvsg.empty else pd.DataFrame()
 
         if not run_rafm.empty:
@@ -634,7 +633,6 @@ def run_ul(params):
             merged['rv_av_if'] = 0
 
         merged.fillna(0, inplace=True)
-
         def safe_get_col(df, col_name):
             for col in df.columns:
                 if col.lower() == col_name.lower():
@@ -664,7 +662,6 @@ def run_ul(params):
                 if col.lower() == col_name.lower():
                     return df[col].sum()
             return 0
-
         summary = pd.DataFrame({
             'DV # of Policies': [
                 safe_sum(dv_ul_total, 'pol_num'),
