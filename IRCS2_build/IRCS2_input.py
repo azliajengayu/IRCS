@@ -1,6 +1,6 @@
 import pandas as pd
 
-CODE_LIBRARY_path = r"D:\Run Control 2\Input\Input Sheet.xlsx"
+CODE_LIBRARY_path = r"P:\13. Employee Folder\Christo\8M\Input Sheet_UAT.xlsx"
 
 
 
@@ -35,6 +35,7 @@ LGC_LGM_CAMPAIGN_path= path_map.get('LGC_LGM_Campaign')
 BSI_ATTRIBUSI_path   = path_map.get('BSI Attribusi')
 TRADCONV_path        = path_map.get('RESERVE_TRADCONV_RWNB_IFRS')
 TRADSHA_path         = path_map.get('RESERVE_TRADSHA_RWNB_IFRS')
+acp_path             = path_map.get('ACP Campaign')
 xlsx_filename        = path_map.get('Output filename')
 xlsx_output          = "\\".join([x for x in DV_AZTRAD_path.split('\\')]
                                  [:len(DV_AZTRAD_path.split('\\')) - 1 ]) + "\\" + xlsx_filename + ".xlsx"

@@ -187,8 +187,8 @@ tradcon_input = read_csv_fallback(
     quoting=3
 )
 tradcon_input = tradcon_input[['POLICY_REF','PRODUCT_CODE','COVER_CODE','SUM_INSURED','CURRENCY1','POLICY_START_DATE']]
-tradcon_input = tradcon_input[tradcon_input['PRODUCT_CODE'].str.contains('lg[cm]', case=False, na=False)]
-tradcon_input = tradcon_input.groupby(["POLICY_REF"]).first().reset_index()
+tradcon_lgc = tradcon_input[tradcon_input['PRODUCT_CODE'].str.contains('lg[cm]', case=False, na=False)]
+tradcon_lgc = tradcon_lgc.groupby(["POLICY_REF"]).first().reset_index()
 
 def filter_by_month(input, reporting_month,financial_year):
     month = reporting_month
@@ -223,7 +223,7 @@ def filter_by_month(input, reporting_month,financial_year):
     filtered = input[input['POLICY_START_DATE'] < cutoff]
     return filtered
 
-tradcon_cleaned = filter_by_month(tradcon_input, input_sheet.reporting_month, input_sheet.financial_year)
+tradcon_cleaned = filter_by_month(tradcon_lgc, input_sheet.reporting_month, input_sheet.financial_year)
 
 tradsha_input = read_csv_fallback(
     input_sheet.TRADSHA_path,
@@ -233,10 +233,10 @@ tradsha_input = read_csv_fallback(
     quoting=3
 )
 tradsha_input = tradsha_input[['POLICY_REF','PRODUCT_CODE','COVER_CODE','SUM_INSURED','CURRENCY1','POLICY_START_DATE']]
-tradsha_input = tradsha_input[tradsha_input['PRODUCT_CODE'].str.contains('lg[cm]', case=False, na=False)]
-tradsha_input = tradsha_input.groupby(["POLICY_REF"]).first().reset_index()
+tradsha_lgc = tradsha_input[tradsha_input['PRODUCT_CODE'].str.contains('lg[cm]', case=False, na=False)]
+tradsha_lgc = tradsha_lgc.groupby(["POLICY_REF"]).first().reset_index()
 
-tradsha_cleaned = filter_by_month(tradsha_input,input_sheet.reporting_month, input_sheet.financial_year)
+tradsha_cleaned = filter_by_month(tradsha_lgc,input_sheet.reporting_month, input_sheet.financial_year)
 
 tradcon = tradcon_cleaned
 tradcon = tradcon.drop(columns=["POLICY_START_DATE"])
@@ -293,6 +293,44 @@ tradsha_tes = tradsha_tes.groupby(["PRODUCT_CODE"],as_index=False).sum(numeric_o
 
 merged_SA = pd.concat([tradcon_tes,tradsha_tes])
 merged_SA = merged_SA.rename(columns= {'PRODUCT_CODE':'Grouping Raw Data','SUM_INSURED':'SA Raw Data'})
+
+acp = read_csv_fallback(
+    input_sheet.acp_path,
+    sep=";",
+    engine="python",
+    on_bad_lines="skip",
+    quoting=3
+)
+acp = acp.rename(columns = {'Policy_No':'POLICY_REF'})
+
+tradcon_azcp = tradcon_input[tradcon_input['COVER_CODE'].str.contains('AZCP', case=False, na=False)]
+tradcon_azcp_cleaned = filter_by_month(tradcon_azcp, 8, 2025)
+tradcon_azcp_cleaned = tradcon_azcp_cleaned.drop(columns=["POLICY_START_DATE"])
+
+tradsha_azcp = tradsha_input[tradsha_input['COVER_CODE'].str.contains('AZCP', case=False, na=False)]
+tradsha_azcp_cleaned = filter_by_month(tradsha_azcp, 8, 2025)
+tradsha_azcp_cleaned = tradsha_azcp_cleaned.drop(columns=["POLICY_START_DATE"])
+
+merged_azcp = pd.concat([tradcon_azcp_cleaned,tradsha_azcp_cleaned])
+merged_azcp = merged_azcp[merged_azcp["POLICY_REF"].isin(acp["POLICY_REF"])]
+merged_azcp["bonus"] = np.where(
+    merged_azcp["SUM_INSURED"] >= 4000000000,
+    400000000,
+    0
+)
+
+merged_azcp = merged_azcp.drop(columns = ['POLICY_REF','COVER_CODE'])
+merged_azcp['Grouping Raw Data'] = merged_azcp["PRODUCT_CODE"]+"_"+merged_azcp["CURRENCY1"]
+merged_azcp['PRODUCT_CD'] = 'BASE_'+merged_azcp['PRODUCT_CODE']
+merged_azcp["Grouping DV"] = merged_azcp["PRODUCT_CODE"].map(convert).fillna(merged_azcp["PRODUCT_CODE"])
+merged_azcp = merged_azcp.drop(columns = {'PRODUCT_CODE'})
+kolom = ['PRODUCT_CD','CURRENCY1','Grouping Raw Data','Grouping DV','SUM_INSURED','bonus']
+merged_azcp_header = merged_azcp.drop(columns = {'SUM_INSURED','bonus'})
+merged_azcp_sum = merged_azcp.drop(columns = {'CURRENCY1','Grouping Raw Data','PRODUCT_CD'})
+merged_azcp_sum = merged_azcp_sum.groupby(["Grouping DV"],as_index=False).sum(numeric_only=True)
+merged_azcp_header = merged_azcp_header.groupby(["CURRENCY1"]).first().reset_index()
+merged_azcp = pd.merge(merged_azcp_header,merged_azcp_sum,on = 'Grouping DV',how = 'left')
+merged_azcp = merged_azcp[kolom]
 
 campaign_sum = pd.merge(summary,merged_SA,on='Grouping Raw Data',how = 'left')
 campaign_sum['Currency'] = campaign_sum['Grouping Raw Data'].str[-3:]

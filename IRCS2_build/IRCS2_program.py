@@ -336,7 +336,7 @@ for x in range(len(merged_trad_data)):
 
 for r in range(11, 11 + len(merged_trad_data)):
     wtrad.write_formula(f'M{r}', f'=E{r}-I{r}', wb.add_format({'num_format': number_format}))
-    wtrad.write_formula(f'N{r}', f'=F{r}-J{r}-IFERROR(INDEX(SUMMARY_CAMPAIGN!G$3:G$1048576, MATCH(D{r}, SUMMARY_CAMPAIGN!D$3:D$1048576, 0)), 0)', wb.add_format({'num_format': number_format}))
+    wtrad.write_formula(f'N{r}', f'=F{r}-J{r}-IFERROR(INDEX(SUMMARY_CAMPAIGN!G$3:G$999, MATCH(D{r}, SUMMARY_CAMPAIGN!D$3:D$999, 0)), 0)-IFERROR(INDEX(AZCP_CAMPAIGN!G$3:G$999, MATCH(D{r}, AZCP_CAMPAIGN!D$3:D$999, 0)), 0)', wb.add_format({'num_format': number_format}))
     wtrad.write_formula(
         f'O{r}',
         f'=G{r}-K{r}+IFERROR(INDEX(\'Summary BSI\'!C2:C999, MATCH(D{r}, \'Summary BSI\'!B2:B999, 0)), 0)',
@@ -366,8 +366,8 @@ wtrad.conditional_format('Q11:T999', {
 
 # SUMMARY_CAMPAIGN sheet
 wcampaign = wb.add_worksheet("SUMMARY_CAMPAIGN")
-wcampaign.set_column(1, 1, 14)
-wcampaign.set_column(2, 2, 8)
+wcampaign.set_column(1, 1, max_len)
+wcampaign.set_column(2, 2, max_len)
 wcampaign.set_column(3, 14, max_len)
 
 header_campaign = ["PRODUCT_CD", "CURRENCY", "GROUPING RAW DATA", "GROUPING DV", "SUM_ASSURED", "Bonus SA", "SA After Bonus","SA Raw Data","SA IT_AZTRAD_FULL_Stat", "Diff Raw Data and IT", "SA DV Output", "Diff IT and DV", "Diff"]
@@ -426,6 +426,46 @@ for x in range(len(campaign_sum)):
         f'=$L{row_excel}-$J{row_excel}',cell_fmt)
     wcampaign.write_formula(row_excel-1, col_diff-1,
         f'=$M{row_excel}-$G{row_excel}',cell_fmt)
+
+#SUMMARY AZCP
+wazcp = wb.add_worksheet("AZCP_CAMPAIGN")
+wazcp.set_column(1, 1, max_len)
+wazcp.set_column(2, 2, max_len)
+wazcp.set_column(3, 6, max_len)
+
+header_campaign = ["PRODUCT_CD", "CURRENCY", "GROUPING RAW DATA", "GROUPING DV", "SUM_ASSURED", "Bonus AZCP"]
+header_campaign_frm = wb.add_format({'bold': True, 
+                                    'align': 'left',
+                                    'top': 1, 'top_color':'black', 'bottom': 1,
+                                    'bottom_color': 'black', 'left': 1,'left_color': 'black',
+                                    'right': 1,'right_color': 'black'})
+header_campaign_frm_tail = wb.add_format({'bold': True, 'bg_color': "#8CA5D8", 'pattern': 1, 
+                                    'align': 'left', 
+                                    'top': 1, 'top_color':'black', 'bottom': 1,
+                                    'bottom_color': 'black', 'left': 1,'left_color': 'black',
+                                    'right': 1,'right_color': 'black'})
+
+header_len = len(header_campaign)
+for c, h in enumerate(header_campaign):
+    wazcp.write(1, c + 1, h, header_campaign_frm_tail)
+for c, h in enumerate(header_campaign[:header_len - 8]):
+    wazcp.write(1,c + 1, h, header_campaign_frm)
+
+campaign_azcp = trad.merged_azcp
+cell_fmt = wb.add_format({
+    'num_format': number_format,
+    'top': 1, 'top_color':'black',
+    'bottom': 1, 'bottom_color': 'black',
+    'left': 1, 'left_color': 'black',
+    'right': 1, 'right_color': 'black'
+})
+for x in range(len(campaign_azcp)):
+    for c, item_ in enumerate(campaign_azcp.iloc[x]):
+        wazcp.write(2 + x, c + 1, item_, 
+                        wb.add_format({'num_format': number_format,
+                                       'top': 1, 'top_color':'black', 'bottom': 1,
+                                       'bottom_color': 'black', 'left': 1,'left_color': 'black',
+                                       'right': 1,'right_color': 'black'}))
 
 
 # CONTROL_2_SUMMARY SHEET
