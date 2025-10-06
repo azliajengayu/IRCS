@@ -304,11 +304,11 @@ acp = read_csv_fallback(
 acp = acp.rename(columns = {'Policy_No':'POLICY_REF'})
 
 tradcon_azcp = tradcon_input[tradcon_input['COVER_CODE'].str.contains('AZCP', case=False, na=False)]
-tradcon_azcp_cleaned = filter_by_month(tradcon_azcp, 8, 2025)
+tradcon_azcp_cleaned = filter_by_month(tradcon_azcp, input_sheet.reporting_month, input_sheet.financial_year)
 tradcon_azcp_cleaned = tradcon_azcp_cleaned.drop(columns=["POLICY_START_DATE"])
 
 tradsha_azcp = tradsha_input[tradsha_input['COVER_CODE'].str.contains('AZCP', case=False, na=False)]
-tradsha_azcp_cleaned = filter_by_month(tradsha_azcp, 8, 2025)
+tradsha_azcp_cleaned = filter_by_month(tradsha_azcp, input_sheet.reporting_month, input_sheet.financial_year)
 tradsha_azcp_cleaned = tradsha_azcp_cleaned.drop(columns=["POLICY_START_DATE"])
 
 merged_azcp = pd.concat([tradcon_azcp_cleaned,tradsha_azcp_cleaned])
