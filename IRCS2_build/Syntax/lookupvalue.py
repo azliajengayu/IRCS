@@ -1,8 +1,8 @@
 import pandas as pd
 import IRCS2_input as input_script
 import xlsxwriter
-import UL
-import trad
+import Syntax.UL as UL
+import Syntax.trad as trad
 import numpy as np
 
 # UL Lookup processing 

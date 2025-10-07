@@ -1,4 +1,4 @@
-from main import main
+from Syntax.main import main
 import sys
 import os
 

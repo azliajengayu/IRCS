@@ -21,8 +21,8 @@ class InputSheetConfig:
         self.output_ul = output_ul
 
 try:
-    from ul_trad import run_trad, run_ul
-    from config_reader import setup_configuration, validate_excel_file
+    from Syntax.ul_trad import run_trad, run_ul
+    from Syntax.config_reader import setup_configuration, validate_excel_file
 except ImportError as e:
     print(f"Error importing modules: {e}")
     sys.exit(1)

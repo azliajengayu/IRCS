@@ -1,11 +1,11 @@
 import xlsxwriter
 from collections import defaultdict
 from IRCS2_input import xlsx_output, IT_AZTRAD_path, SUMMARY_path
-import UL
+import Syntax.UL as UL
 import time
-import lookupvalue as tst
+import Syntax.lookupvalue as tst
 import numpy
-import trad
+import Syntax.trad as trad
 import pandas as pd
 
 def elapsed_time(start,end):
