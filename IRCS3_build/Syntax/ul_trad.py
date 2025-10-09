@@ -354,7 +354,6 @@ def run_trad(params):
             run_rafm_usd = run_rafm_usd.drop(columns=["period"])
 
         run_rafm_only = pd.concat([run_rafm_idr, run_rafm_usd], ignore_index=True)
-        run_rafm_only = apply_filters(run_rafm_only, params)
         if not run_rafm_only.empty:
             run_rafm_only = clean_numeric_column(run_rafm_only, 'pol_b')
             run_rafm_only = clean_numeric_column(run_rafm_only, 'cov_units')
@@ -577,7 +576,6 @@ def run_ul(params):
             run_rafm_usd = run_rafm_usd.drop(columns=["period"])
 
         run_rafm_only = pd.concat([run_rafm_idr, run_rafm_usd], ignore_index=True)
-        run_rafm_only = apply_filters(run_rafm_only, params)
         if not run_rafm_only.empty:
             run_rafm_only = clean_numeric_column(run_rafm_only, 'pol_b')
             run_rafm_only = clean_numeric_column(run_rafm_only, 'rv_av_if')
