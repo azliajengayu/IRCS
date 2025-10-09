@@ -50,7 +50,7 @@ def combine_filters(*args):
         combined.extend(arg)
     return combined
 
-def apply_filters(df, params):
+def apply_filters_dv(df, params):
     if df.empty:
         return df.copy()
 
@@ -125,6 +125,49 @@ def apply_filters(df, params):
     filtered_df = df_processed[mask].copy()
     filtered_df.columns = [column_mapping.get(col.lower(), col) for col in filtered_df.columns]
     return filtered_df
+
+def apply_filters_rafm(df, params):
+    if df.empty:
+        return df.copy()
+
+    df_processed, column_mapping = make_columns_case_insensitive(df)
+    
+    produk_tertentu = combine_filters(
+        parse_multi_values(params.get('only_channel', '')),
+        parse_multi_values(params.get('only_currency', '')),
+        parse_multi_values(params.get('only_portfolio', '')),
+    )
+    kecuali_produk = combine_filters(
+        parse_multi_values(params.get('exclude_channel', '')),
+        parse_multi_values(params.get('exclude_currency', '')),
+        parse_multi_values(params.get('exclude_portfolio', '')),
+    )
+
+    mask = pd.Series(True, index=df_processed.index)
+
+    goc_col = 'goc'
+    if goc_col not in df_processed.columns:
+        print(f"Warning: 'goc' column not found. Available columns: {df_processed.columns.tolist()}")
+        return df.copy()
+
+    if produk_tertentu:
+        produk_mask = pd.Series(False, index=df_processed.index)
+        for produk in produk_tertentu:
+            pattern = rf'(^|_){re.escape(produk)}(_|$)'
+            produk_mask |= df_processed[goc_col].astype(str).str.contains(pattern, case=False, na=False)
+        mask &= produk_mask
+
+    if kecuali_produk:
+        for produk_exc in kecuali_produk:
+            pattern = rf'(^|_){re.escape(produk_exc)}(_|$)'
+            mask &= ~df_processed[goc_col].astype(str).str.contains(pattern, case=False, na=False)
+
+
+
+    filtered_df = df_processed[mask].copy()
+    filtered_df.columns = [column_mapping.get(col.lower(), col) for col in filtered_df.columns]
+    return filtered_df
+
 
 def filter_goc_by_code(df, code):
     if df.empty:
@@ -234,7 +277,7 @@ def run_trad(params):
         dv_trad_processed, dv_column_mapping = make_columns_case_insensitive(dv_trad)
         
         # Apply filters
-        dv_trad_total = apply_filters(dv_trad_processed, params)
+        dv_trad_total = apply_filters_dv(dv_trad_processed, params)
         
         columns_to_drop = ['product_group', 'pre_ann', 'loan_sa']
         columns_to_drop_lower = [col.lower() for col in columns_to_drop]
@@ -354,6 +397,7 @@ def run_trad(params):
             run_rafm_usd = run_rafm_usd.drop(columns=["period"])
 
         run_rafm_only = pd.concat([run_rafm_idr, run_rafm_usd], ignore_index=True)
+        run_rafm_only = apply_filters_rafm(run_rafm_only, params)
         if not run_rafm_only.empty:
             run_rafm_only = clean_numeric_column(run_rafm_only, 'pol_b')
             run_rafm_only = clean_numeric_column(run_rafm_only, 'cov_units')
@@ -496,7 +540,7 @@ def run_ul(params):
         
         if dv_ul.empty:
             return {"error": "File DV kosong atau tidak dapat dibaca"} 
-        dv_ul_total = apply_filters(dv_ul, params)
+        dv_ul_total = apply_filters_dv(dv_ul, params)
         columns_to_drop = ['product_group', 'pre_ann', 'sum_assur']
         columns_to_drop_lower = [col.lower() for col in columns_to_drop]
         
@@ -576,6 +620,7 @@ def run_ul(params):
             run_rafm_usd = run_rafm_usd.drop(columns=["period"])
 
         run_rafm_only = pd.concat([run_rafm_idr, run_rafm_usd], ignore_index=True)
+        run_rafm_only = apply_filters_rafm(run_rafm_only, params)
         if not run_rafm_only.empty:
             run_rafm_only = clean_numeric_column(run_rafm_only, 'pol_b')
             run_rafm_only = clean_numeric_column(run_rafm_only, 'rv_av_if')
