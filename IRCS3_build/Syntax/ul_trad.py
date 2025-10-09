@@ -142,6 +142,8 @@ def apply_filters_rafm(df, params):
         parse_multi_values(params.get('exclude_currency', '')),
         parse_multi_values(params.get('exclude_portfolio', '')),
     )
+    only_cohort_list = parse_multi_values(params.get('only_cohort', ''))
+    exclude_cohort_list = parse_multi_values(params.get('exclude_cohort', ''))
 
     mask = pd.Series(True, index=df_processed.index)
 
@@ -149,6 +151,14 @@ def apply_filters_rafm(df, params):
     if goc_col not in df_processed.columns:
         print(f"Warning: 'goc' column not found. Available columns: {df_processed.columns.tolist()}")
         return df.copy()
+
+    if only_cohort_list:
+        pattern_inc = '|'.join(map(re.escape, only_cohort_list))
+        mask &= df_processed[goc_col].astype(str).str.contains(pattern_inc, case=False, na=False)
+
+    if exclude_cohort_list:
+        pattern_exc = '|'.join(map(re.escape, exclude_cohort_list))
+        mask &= ~df_processed[goc_col].astype(str).str.contains(pattern_exc, case=False, na=False)
 
     if produk_tertentu:
         produk_mask = pd.Series(False, index=df_processed.index)
