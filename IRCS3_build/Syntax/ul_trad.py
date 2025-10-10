@@ -544,13 +544,19 @@ def run_ul(params):
 
         # Load DV data
         try:
-            dv_ul = pd.read_excel(path_dv, sheet_name=0, engine='openpyxl')
-        except Exception as e:
-            return {"error": f"Gagal membaca file DV: {str(e)}"}
+            dv_ul = pd.read_csv(path_dv)
+        except:
+            try:
+                dv_ul = pd.read_excel(path_dv, engine='openpyxl')
+            except Exception as e:
+                return {"error": f"Gagal membaca file DV: {str(e)}"}
         
         if dv_ul.empty:
-            return {"error": "File DV kosong atau tidak dapat dibaca"} 
-        dv_ul_total = apply_filters_dv(dv_ul, params)
+            return {"error": "File DV kosong atau tidak dapat dibaca"}
+        
+        dv_ul_processed, dv_column_mapping = make_columns_case_insensitive(dv_ul)
+ 
+        dv_ul_total = apply_filters_dv(dv_ul_processed, params)
         columns_to_drop = ['product_group', 'pre_ann', 'sum_assur']
         columns_to_drop_lower = [col.lower() for col in columns_to_drop]
         
