@@ -193,7 +193,7 @@ def convert_trad_result_to_standard(result):
 def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
     wb = xlsxwriter.Workbook(input_config.output_trad, {'nan_inf_to_errors': True})
     number_format = '_(* #,##0_);_(* (#,##0)_);_(* "-"_);_(@_)'
-
+    total_run = len(input_config.tradfilter)
     header_sum_tablerow = ['DV', 'RAFM', 'Differences']
     header_sum_tablerow2 = ['Total', 'Trad-Life inc. BTPN', 'Trad-Health non-YRT', 'Trad-Health YRT', 'Trad-C']
     tablerow2_len = len(header_sum_tablerow2)
@@ -202,14 +202,13 @@ def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
     ws.freeze_panes(0, 1)
     ws.set_column(0, 0, 20)
     ws.set_column(1, 12, 25)
-    ws.set_column(13, 13, 30)
+    ws.set_column(13, 17, 30)
 
     bold = wb.add_format({'bold': True})
     yellow = wb.add_format({'bold': True, 'bg_color': 'yellow'})
     center_bold = wb.add_format({'bold': True, 'align': 'center'})
     green_underline = wb.add_format({'bold': True, 'underline': True, 'bg_color': 'green'})
     center_merge = wb.add_format({'bold': True, 'align': 'center'})
-    border_yellow = wb.add_format({'bold': True, 'bg_color': 'yellow', 'border': 1})
     border_number = wb.add_format({'num_format': number_format, 'border': 1})
 
     ws.write(0, 0, 'Valuation Year', bold)
@@ -217,13 +216,12 @@ def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
     ws.write(2, 0, 'FX Rate ValDate', bold)
     ws.write(4, 0, '# of Policies Check', green_underline)
     ws.write(5, 0, '# Run', green_underline)
+    ws.write(8 + total_run, 0, 'SA Check', green_underline)
+    ws.write(9 + total_run, 0, '# Run', green_underline)
 
     ws.write(0, 1, input_config.valuation_year, yellow)
     ws.write(1, 1, input_config.valuation_month, yellow)
     ws.write(2, 1, input_config.valuation_rate, yellow)
-
-    for i, run_name in enumerate(input_config.tradfilter):
-        ws.write(6 + i, 0, run_name, border_yellow)
 
     for c, item in enumerate(header_sum_tablerow):
         ws.merge_range(4, 1 + (tablerow2_len * c), 4, tablerow2_len + (tablerow2_len * c), item, center_merge)
@@ -255,7 +253,7 @@ def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
         ws.write_formula(row, 15, f'=F{row+1}-K{row+1}', border_number)
 
         # === DV Detail (kolom 2–5) ===
-        ws.write_formula(row, 2, f"='{run_name}'!C5", border_number)
+        ws.write_formula(row, 2, f"='{run_name}'!C5 + '{run_name}'!K4", border_number)
         ws.write_formula(row, 3, f"='{run_name}'!S4", border_number)
         ws.write_formula(row, 4, f"='{run_name}'!AA4", border_number)
         ws.write_formula(row, 5, f"='{run_name}'!AI4", border_number)
@@ -265,6 +263,47 @@ def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
         ws.write_formula(row, 8, f"='{run_name}'!U4", border_number)
         ws.write_formula(row, 9, f"='{run_name}'!AC4", border_number)
         ws.write_formula(row, 10, f"='{run_name}'!AK4", border_number)
+
+    for c, item in enumerate(header_sum_tablerow):
+        ws.merge_range(8 + total_run, 1 + (tablerow2_len * c), 8 + total_run, tablerow2_len + (tablerow2_len * c), item, center_merge)
+
+    ws.merge_range(8 + total_run, 16, 9 + total_run, 16, 'Notes', center_merge)
+
+    for i in range(len(header_sum_tablerow)):
+        for c, item in enumerate(header_sum_tablerow2):
+            ws.write(9 + total_run, c + 1 + (tablerow2_len * i), item, center_bold)
+
+    for i, run_name in enumerate(input_config.tradfilter):
+        row = 10 + total_run + i
+        if not run_name:
+            continue
+        
+        ws.write(row, 0, run_name, yellow)
+        
+        # === DV (kolom 1) ===
+        ws.write_formula(row, 1, f'=SUM(C{row+1}:F{row+1})',border_number)
+
+        # === RAFM (kolom 6) ===
+        ws.write_formula(row, 6, f'=SUM(H{row+1}:K{row+1})', border_number)
+
+        # === Differences (kolom 11–15) ===
+        ws.write_formula(row, 11, f'=B{row+1}-G{row+1}', border_number)
+        ws.write_formula(row, 12, f'=C{row+1}-H{row+1}', border_number)
+        ws.write_formula(row, 13, f'=D{row+1}-I{row+1}', border_number)
+        ws.write_formula(row, 14, f'=E{row+1}-J{row+1}', border_number)
+        ws.write_formula(row, 15, f'=F{row+1}-K{row+1}', border_number)
+
+        # === DV Detail (kolom 2–5) ===
+        ws.write_formula(row, 2, f"='{run_name}'!D5 + '{run_name}'!L4", border_number)
+        ws.write_formula(row, 3, f"='{run_name}'!T4", border_number)
+        ws.write_formula(row, 4, f"='{run_name}'!AB4", border_number)
+        ws.write_formula(row, 5, f"='{run_name}'!AJ4", border_number)
+
+        # === RAFM Detail (kolom 7–10) ===
+        ws.write_formula(row, 7, f"='{run_name}'!F5 + '{run_name}'!N4", border_number)
+        ws.write_formula(row, 8, f"='{run_name}'!V4", border_number)
+        ws.write_formula(row, 9, f"='{run_name}'!AD4", border_number)
+        ws.write_formula(row, 10, f"='{run_name}'!AL4", border_number)
 
     wb.add_worksheet('Diff Breakdown')
     wb.add_worksheet('>>')
@@ -386,6 +425,7 @@ def convert_ul_result_to_standard(result):
 def write_ul_results_to_excel(ul_results, input_config: InputSheetConfig):
     wb = xlsxwriter.Workbook(input_config.output_ul, {'nan_inf_to_errors': True})
     number_format = '_(* #,##0_);_(* (#,##0)_);_(* "-"_);_(@_)'
+    total_run = len(input_config.ulfilter)
     header_sum_tablerow = ['DV', 'RAFM', 'Differences']
     header_sum_tablerow2 = ['Total', 'UL & SH & PI', 'GS']
 
@@ -400,7 +440,6 @@ def write_ul_results_to_excel(ul_results, input_config: InputSheetConfig):
     center_bold = wb.add_format({'bold': True, 'align': 'center'})
     green_underline = wb.add_format({'bold': True, 'underline': True, 'bg_color': 'green'})
     center_merge = wb.add_format({'bold': True, 'align': 'center'})
-    border_yellow = wb.add_format({'bold': True, 'bg_color': 'yellow', 'border': 1})
     border_number = wb.add_format({'num_format': number_format, 'border': 1})
     fmt_number = wb.add_format({'num_format': number_format})
     ws.write(0, 0, 'Valuation Year', bold)
@@ -408,13 +447,12 @@ def write_ul_results_to_excel(ul_results, input_config: InputSheetConfig):
     ws.write(2, 0, 'FX Rate ValDate', bold)
     ws.write(4, 0, '# of Policies Check', green_underline)
     ws.write(5, 0, '# Run', green_underline)
+    ws.write(8 + total_run, 0, 'Fund Check', green_underline)
+    ws.write(9 + total_run, 0, '# Run', green_underline)
 
     ws.write(0, 1, input_config.valuation_year, yellow)
     ws.write(1, 1, input_config.valuation_month, yellow)
     ws.write(2, 1, input_config.valuation_rate, yellow)
-
-    for i, run_name in enumerate(input_config.ulfilter):
-        ws.write(6 + i, 0, run_name, border_yellow)
 
     for c, item in enumerate(header_sum_tablerow):
         ws.merge_range(4, 1 + (3 * c), 4, 3 + (3 * c), item, center_merge)
@@ -440,6 +478,31 @@ def write_ul_results_to_excel(ul_results, input_config: InputSheetConfig):
         ws.write_formula(row, 3, f"='{run_name}'!K4", border_number)
         ws.write_formula(row, 5, f"='{run_name}'!E5", border_number)
         ws.write_formula(row, 6, f"='{run_name}'!M4", border_number)
+
+    for c, item in enumerate(header_sum_tablerow):
+        ws.merge_range(8 + total_run, 1 + (3 * c), 8 + total_run, 3 + (3 * c), item, center_merge)
+    ws.merge_range(8 + total_run, 13, 9 + total_run, 13, 'Notes', center_merge)
+
+    for i in range(len(header_sum_tablerow)):
+        for c, item in enumerate(header_sum_tablerow2):
+            ws.write(9 + total_run, c + 1 + (3 * i), item, center_bold)
+
+    for i, run_name in enumerate(input_config.ulfilter):
+        row = 10 + total_run + i
+        if not run_name:
+            continue
+
+        ws.write(row, 0, run_name, yellow)
+
+        ws.write_formula(row, 1, f'=SUM(C{row+1}:D{row+1})', border_number)
+        ws.write_formula(row, 4, f'=SUM(F{row+1}:G{row+1})', border_number)
+        ws.write_formula(row, 7, f'=B{row+1}-E{row+1}', border_number)
+        ws.write_formula(row, 8, f'=C{row+1}-F{row+1}', border_number)
+        ws.write_formula(row, 9, f'=D{row+1}-G{row+1}', border_number)
+        ws.write_formula(row, 2, f"='{run_name}'!D5", border_number)
+        ws.write_formula(row, 3, f"='{run_name}'!L4", border_number)
+        ws.write_formula(row, 5, f"='{run_name}'!F5", border_number)
+        ws.write_formula(row, 6, f"='{run_name}'!N4", border_number)
 
     wb.add_worksheet('Diff Breakdown')
     wb.add_worksheet('>>')
@@ -522,7 +585,7 @@ def write_ul_results_to_excel(ul_results, input_config: InputSheetConfig):
                     data_start_row = 6
                     data_end_row = 6 + len(df) - 1
 
-                    if idx == 0:  # Kolom C-H
+                    if idx == 0:
                         for col_offset in range(1, 7):  
                             col_idx = col_starts[idx] + col_offset
                             col_letter = xl_col_to_name(col_idx)

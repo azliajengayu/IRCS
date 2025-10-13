@@ -187,7 +187,7 @@ tradcon_input = read_csv_fallback(
     quoting=3
 )
 tradcon_input = tradcon_input[['POLICY_REF','PRODUCT_CODE','COVER_CODE','SUM_INSURED','CURRENCY1','POLICY_START_DATE']]
-tradcon_lgc = tradcon_input[tradcon_input['PRODUCT_CODE'].str.contains('lg[cm]', case=False, na=False)]
+tradcon_lgc = tradcon_input[tradcon_input['COVER_CODE'].str.contains('lg[cm]', case=False, na=False)]
 tradcon_lgc = tradcon_lgc.groupby(["POLICY_REF"]).first().reset_index()
 
 def filter_by_month(input, reporting_month,financial_year):
@@ -233,7 +233,7 @@ tradsha_input = read_csv_fallback(
     quoting=3
 )
 tradsha_input = tradsha_input[['POLICY_REF','PRODUCT_CODE','COVER_CODE','SUM_INSURED','CURRENCY1','POLICY_START_DATE']]
-tradsha_lgc = tradsha_input[tradsha_input['PRODUCT_CODE'].str.contains('lg[cm]', case=False, na=False)]
+tradsha_lgc = tradsha_input[tradsha_input['COVER_CODE'].str.contains('lg[cm]', case=False, na=False)]
 tradsha_lgc = tradsha_lgc.groupby(["POLICY_REF"]).first().reset_index()
 
 tradsha_cleaned = filter_by_month(tradsha_lgc,input_sheet.reporting_month, input_sheet.financial_year)
@@ -386,4 +386,4 @@ def add_currency(row):
 
 merged.insert(1, 'col2', merged.apply(add_currency, axis=1))
 
-trad_dv = trad_dv 
+trad_dv = trad_dv
