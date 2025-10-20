@@ -1,6 +1,10 @@
 from syntax.main import main
+import time
 
-input = r"D:\Run Control 4\input_excel_2025Q1"
+input_path = r"P:\13. Employee Folder\Christo\control 4\Q3 25\input excel"
 
 if __name__ == "__main__":
-    main(input)
+    print("🚀 Starting program...")
+    start = time.time()
+    main(input_path)
+    print(f"\n✅ Program selesai dalam {time.time() - start:.2f} detik")
