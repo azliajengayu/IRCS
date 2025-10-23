@@ -8,15 +8,77 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 import warnings
 warnings.filterwarnings('ignore')
 
+def parse_numeric_fast(val):
+    if val is None or val == '':
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+
+    if isinstance(val, str):
+        s = val.strip()
+        if not s or s.lower() in ['none', 'nan', 'n/a', '-', '--']:
+            return None
+        s = s.replace('\xa0', '').replace(' ', '').replace('\u202f', '')
+        s = s.replace('−', '-')
+        s = re.sub(r'[^\d,\.\-()%]', '', s)
+        is_percent = s.endswith('%')
+        if is_percent:
+            s = s[:-1]
+        is_negative = False
+        if s.startswith('(') and s.endswith(')'):
+            is_negative = True
+            s = s[1:-1]
+
+        comma_count = s.count(',')
+        dot_count = s.count('.')
+
+        try:
+            if comma_count > 1 and dot_count == 1 and s.rfind('.') > s.rfind(','):
+                result = float(s.replace(',', ''))
+            elif comma_count == 1 and dot_count > 0 and s.rfind(',') > s.rfind('.'):
+                result = float(s.replace('.', '').replace(',', '.'))
+            elif dot_count == 0 and comma_count == 1:
+                result = float(s.replace(',', '.'))
+            elif dot_count > 1 and comma_count == 0:
+                result = float(s.replace('.', ''))
+            elif comma_count == 0 and dot_count <= 1:
+                result = float(s)
+            else:
+                result = float(s.replace(',', '').replace('.', ''))
+
+            if is_negative:
+                result = -result
+            if is_percent:
+                result /= 100.0
+            return result
+        except ValueError:
+            return None
+
+    try:
+        return float(val)
+    except:
+        return None
+
+def clean_numeric_column(df, column_name):
+    df_processed, _ = make_columns_case_insensitive(df)
+    column_lower = column_name.lower()
+
+    if column_lower not in df_processed.columns:
+        return df
+
+    original_col = next((col for col in df.columns if col.lower() == column_lower), None)
+    if not original_col:
+        return df
+
+    col_data = df[original_col].astype(str).to_list()
+
+    with ThreadPoolExecutor() as executor:
+        parsed = list(executor.map(parse_numeric_fast, col_data))
+
+    df[original_col] = np.nan_to_num(parsed, nan=0.0)
+    return df
+
 def make_columns_case_insensitive(df):
-    """
-    Convert DataFrame column names to lowercase (case-insensitive handling),
-    while returning mapping from lowercase → original.
-    
-    Returns:
-        df_lower: DataFrame with lowercase column names
-        column_mapping: dict of {lowercase_col: original_col}
-    """
     if df is None or df.empty:
         return pd.DataFrame(), {}
 
@@ -37,14 +99,12 @@ def make_columns_case_insensitive(df):
 
 
 def parse_multi_values(value):
-    """Parse comma/slash separated values"""
     if pd.isna(value) or not value:
         return []
     parts = re.split(r'[,/]', str(value))
     return [p.strip() for p in parts if p.strip()]
 
 def combine_filters(*args):
-    """Combine multiple filter lists"""
     combined = []
     for arg in args:
         combined.extend(arg)
@@ -209,33 +269,7 @@ def exclude_goc_by_code(df, code):
     
     return df[~mask].copy()
 
-def clean_numeric_column(df, column_name):
-    """Clean and convert column to numeric with case-insensitive column handling"""
-    df_processed, _ = make_columns_case_insensitive(df)
-    
-    column_lower = column_name.lower()
-    
-    if column_lower in df_processed.columns:
-        original_col = None
-        for col in df.columns:
-            if col.lower() == column_lower:
-                original_col = col
-                break
-        
-        if original_col:
-            df[original_col] = pd.to_numeric(
-                df[original_col].astype(str).str.replace(",", ".", regex=False),
-                errors="coerce"
-            )
-            df[original_col] = df[original_col].fillna(0)
-    
-    return df
-
 def load_excel_sheet_safely(file_path, sheet_name, required_columns=None, return_column_mapping=False):
-    """
-    Safely load Excel sheet with optional required column check (case-insensitive).
-    If return_column_mapping is True, returns a tuple (df, column_mapping), otherwise just df.
-    """
     try:
         if not file_path or not os.path.exists(file_path):
             print(f"⚠️ File not found: {file_path}")
@@ -267,7 +301,6 @@ def load_excel_sheet_safely(file_path, sheet_name, required_columns=None, return
 
 
 def run_trad(params):
-    """Main function for Traditional products processing with case-insensitive handling"""
     try:
         path_dv = params.get('path_dv', '')
         path_rafm = params.get('path_rafm', '')
@@ -286,7 +319,6 @@ def run_trad(params):
                 
         dv_trad_processed, dv_column_mapping = make_columns_case_insensitive(dv_trad)
         
-        # Apply filters
         dv_trad_total = apply_filters_dv(dv_trad_processed, params)
         
         columns_to_drop = ['product_group', 'pre_ann', 'loan_sa']
@@ -366,8 +398,8 @@ def run_trad(params):
         dv_trad_total[goc_column] = dv_trad_total[goc_column].apply(sortir_func)
         dv_trad_total[goc_column] = dv_trad_total[goc_column].apply(lambda x: 'H_IDR_NO_2025' if x == 'IDR_NO_2025' else x)
 
-        dv_trad_total = clean_numeric_column(dv_trad_total, 'pol_num')
-        dv_trad_total = clean_numeric_column(dv_trad_total, 'sum_assd')
+        with ThreadPoolExecutor() as executor:
+            executor.map(lambda col: clean_numeric_column(dv_trad_total, col), ['pol_num', 'sum_assd'])
 
         dv_trad_total = dv_trad_total.groupby([goc_column], as_index=False).sum(numeric_only=True)
 
@@ -409,8 +441,8 @@ def run_trad(params):
         run_rafm_only = pd.concat([run_rafm_idr, run_rafm_usd], ignore_index=True)
         run_rafm_only = apply_filters_rafm(run_rafm_only, params)
         if not run_rafm_only.empty:
-            run_rafm_only = clean_numeric_column(run_rafm_only, 'pol_b')
-            run_rafm_only = clean_numeric_column(run_rafm_only, 'cov_units')
+            with ThreadPoolExecutor() as executor:
+                executor.map(lambda col: clean_numeric_column(run_rafm_only, col), ['pol_b', 'cov_units'])
             goc_col_rafm = None
             for col in run_rafm_only.columns:
                 if col.lower() == 'goc':
@@ -531,7 +563,6 @@ def run_trad(params):
         return {"error": f"Error in run_trad: {str(e)}"}
 
 def run_ul(params):
-    """Main function for Unit Linked products processing with case-insensitive handling"""
     try:
         path_dv = params.get('path_dv', '')
         path_rafm = params.get('path_rafm', '')
@@ -597,8 +628,9 @@ def run_ul(params):
             return '_'.join(parts[start_index:year_index+1])
 
         dv_ul_total[goc_column] = dv_ul_total[goc_column].apply(sortir)
-        dv_ul_total = clean_numeric_column(dv_ul_total, 'pol_num')
-        dv_ul_total = clean_numeric_column(dv_ul_total, 'total_fund')
+        with ThreadPoolExecutor() as executor:
+            executor.map(lambda col: clean_numeric_column(dv_ul_total, col), ['pol_num', 'total_fund'])
+
         dv_ul_total = dv_ul_total.groupby([goc_column], as_index=False).sum(numeric_only=True)
 
         params_lower = {k.lower(): v for k, v in params.items()}
@@ -638,9 +670,8 @@ def run_ul(params):
         run_rafm_only = pd.concat([run_rafm_idr, run_rafm_usd], ignore_index=True)
         run_rafm_only = apply_filters_rafm(run_rafm_only, params)
         if not run_rafm_only.empty:
-            run_rafm_only = clean_numeric_column(run_rafm_only, 'pol_b')
-            run_rafm_only = clean_numeric_column(run_rafm_only, 'rv_av_if')
-            
+            with ThreadPoolExecutor() as executor:
+                executor.map(lambda col: clean_numeric_column(run_rafm_only, col), ['pol_b', 'rv_av_if'])
             goc_col_rafm = None
             for col in run_rafm_only.columns:
                 if col.lower() == 'goc':
@@ -668,8 +699,8 @@ def run_ul(params):
 
             run_uvsg = pd.concat([run_uvsg_idr, run_uvsg_usd], ignore_index=True)
             if not run_uvsg.empty:
-                run_uvsg = clean_numeric_column(run_uvsg, 'pol_b')
-                run_uvsg = clean_numeric_column(run_uvsg, 'rv_av_if')
+                with ThreadPoolExecutor() as executor:
+                    executor.map(lambda col: clean_numeric_column(run_uvsg, col), ['pol_b', 'rv_av_if'])                
                 
                 # Find and standardize GOC column in UVSG
                 goc_col_uvsg = None

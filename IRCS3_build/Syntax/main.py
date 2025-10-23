@@ -82,7 +82,7 @@ def get_valuation_info_and_filters(excel_path):
         
         for _, row in df_input_setting.iterrows():
             cat = str(row.get('Category', '')).strip()
-            val = row.get('Path', None)  # Changed from 'Value' to 'Path' to match your config
+            val = row.get('Path', None)
             
             if cat == 'Valuation Year':
                 valuation_year = val
@@ -312,12 +312,10 @@ def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
     tablecol_fmt = wb.add_format({'bold': True, 'underline': True, 'bg_color':'#92D050'})
     fmt_number = wb.add_format({'num_format': number_format})
 
-    # Summary formats (green background)
     summary_number_fmt = wb.add_format({'num_format': number_format, 'bg_color': '#92D050', 'bold': True})
     
-    # Data formats (no green background, with border)
-    data_bold_fmt = wb.add_format({'bold': True})  # GOC column - bold with border
-    data_number_fmt = wb.add_format({'num_format': number_format})  # Data columns - border only
+    data_bold_fmt = wb.add_format({'bold': True})
+    data_number_fmt = wb.add_format({'num_format': number_format})
 
     for run_name in input_config.tradfilter:
         if run_name not in trad_results:
@@ -359,7 +357,6 @@ def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
             elif idx == 4:
                 ws.write(3, col_starts[idx], 'Total C', tablecol_fmt)
 
-            # Summary section (GREEN background for all summaries)
             if summary is not None and not summary.empty:
                 for row in range(len(summary)):
                     for c, item in enumerate(summary.iloc[row]):
@@ -368,17 +365,14 @@ def write_trad_results_to_excel(trad_results, input_config: InputSheetConfig):
                             3 + row,
                             col_starts[idx] + 1 + c,
                             value,
-                            summary_number_fmt  # Green background for all summaries
+                            summary_number_fmt
                         )
 
-            # Data section (NO green background, only borders)
             if df is not None and not df.empty:
                 for row in range(len(df)):
-                    # First column (GOC) - bold with border
                     goc_value = df.iloc[row, 0] if not pd.isna(df.iloc[row, 0]) else ''
                     ws.write(6 + row, col_starts[idx], goc_value, data_bold_fmt)
-                    
-                    # Data columns - border only
+
                     for c in range(1, len(df.columns)):
                         item = df.iloc[row, c]
                         value = item if not (pd.isna(item) or item == '') else 0
