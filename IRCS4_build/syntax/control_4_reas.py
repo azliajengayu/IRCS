@@ -67,6 +67,7 @@ def parse_numeric_fast(val):
     except:
         return None
 
+
 def process_argo_file(file_path):
     file_name_argo = os.path.splitext(os.path.basename(file_path))[0]
     
@@ -217,24 +218,14 @@ def main(params):
 
     summary_rows_rafm = [result for result in results if result]
 
-    all_runs = ['11', '21', '31', '41']
-    pattern = '|'.join([f'run{r}' for r in all_runs])
-    
-    summary_rows_rafm = pd.DataFrame(summary_rows_rafm)
-    
-    def add_ori_if_run(x):
-        for r in all_runs:
-            if re.search(fr'run_?{r}', x, re.IGNORECASE):
-                return x + "_ori"
-        return x
-    
-    summary_rows_rafm['File_Name'] = summary_rows_rafm['File_Name'].apply(add_ori_if_run)
-    cf_rafm_1 = summary_rows_rafm.copy()
-    cf_rafm_1 = cf_rafm_1[['File_Name'] + [col for col in cf_rafm_1.columns if col != 'File_Name']]
+    cf_rafm_1 = pd.DataFrame(summary_rows_rafm)
+
+    if not cf_rafm_1.empty and 'File_Name' in cf_rafm_1.columns:
+        cols = ['File_Name'] + [col for col in cf_rafm_1.columns if col != 'File_Name']
+        cf_rafm_1 = cf_rafm_1[cols]
     cf_rafm_1 = cf_rafm_1.rename(columns={'File_Name': 'RAFM File Name'})
     cf_rafm_1 = cf_rafm_1.groupby('RAFM File Name', as_index=False).first()
     cf_rafm_merge = pd.merge(code, cf_rafm_1, on="RAFM File Name", how="left").fillna(0)
-    run1_ori = cf_rafm_1[cf_rafm_1['RAFM File Name'].str.contains(pattern, case=False, na=False)]
 
     numeric_cols = cf_rafm_merge.select_dtypes(include='number').columns
     sum_rows = cf_rafm_merge[cf_rafm_merge['RAFM File Name'].str.contains("SUM_", na=False)]
@@ -258,8 +249,7 @@ def main(params):
         cf_rafm = cf_rafm_merge.drop(columns=columns_to_drop)
     else:
         cf_rafm = cf_rafm_merge.copy()
-        
-    cf_rafm = pd.concat([cf_rafm, run1_ori], ignore_index=True)
+
     cf_rafm['dac_cov_units'] = cf_rafm['cov_units']
     
     rafm_manual = pd.read_excel(rafm_manual_path, sheet_name='Sheet1', engine='openpyxl')
@@ -322,6 +312,21 @@ def main(params):
         idx = val_year_idx[0]
         control.at[idx, 'check sign'] = 'Check Sign'
         control.at[idx, 'result'] = check_sign_total
+
+    columns_name_argo = list(cf_argo.columns[:2])
+    columns_cf_argo =  columns_name_argo + cols_to_compare
+    columns_cf_argo = [k for k in columns_cf_argo if k in cf_argo.columns]
+    cf_argo = cf_argo[columns_cf_argo]
+
+    columns_name_rafm = list(cf_rafm.columns[:2])
+    columns_cf_rafm =  columns_name_rafm + cols_to_compare
+    columns_cf_rafm = [k for k in columns_cf_rafm if k in cf_rafm.columns]
+    cf_rafm = cf_rafm[columns_cf_rafm]
+
+    columns_name_manual = list(rafm_manual.columns[:2])
+    columns_rafm_manual =  columns_name_manual + cols_to_compare
+    columns_rafm_manual = [k for k in columns_rafm_manual if k in rafm_manual.columns]
+    rafm_manual = rafm_manual[columns_rafm_manual] 
 
     return {
         'Control': control,

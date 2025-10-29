@@ -59,112 +59,90 @@ def apply_number_formats(workbook, worksheet, df_sheet, sheet_name):
 
 
 def write_checking_summary_formulas(worksheet, df_sheet, result, jenis, nrows, ncols):
-    if jenis == 'trad':
-        cf_sheet = 'CF ARGO AZTRAD'
-        rafm_sheet_1 = 'RAFM Output AZTRAD'
-        rafm_sheet_2 = 'RAFM Output AZUL_PI'
-        manual_sheet = 'RAFM Output Manual'
 
-        cf_df = result[cf_sheet]
-        rafm1_df = result[rafm_sheet_1]
-        rafm2_df = result[rafm_sheet_2]
-        manual_df = result[manual_sheet]
-        
-        max_col_cf = xl_col_to_name(cf_df.shape[1] - 1)
-        max_col_rafm1 = xl_col_to_name(rafm1_df.shape[1] - 1)
-        max_col_rafm2 = xl_col_to_name(rafm2_df.shape[1] - 1)
-        max_col_manual = xl_col_to_name(manual_df.shape[1] - 1)
+    # Nama sheet sesuai logika lama
+    sheet_names = {
+        'trad': {
+            'cf_argo': 'CF ARGO AZTRAD',
+            'cf_rafm': 'RAFM Output AZTRAD',
+            'rafm_manual': 'RAFM Output Manual',
+            'uvsg': 'RAFM Output AZUL_PI'
+        },
+        'ul': {
+            'cf_argo': 'CF ARGO AZUL',
+            'cf_rafm': 'RAFM Output AZUL',
+            'rafm_manual': 'RAFM Output Manual'
+        },
+        'reas': {
+            'cf_argo': 'CF ARGO REAS',
+            'cf_rafm': 'RAFM Output REAS',
+            'rafm_manual': 'RAFM Output Manual'
+        }
+    }
 
-        max_row_cf = cf_df.shape[0] + 1
-        max_row_rafm1 = rafm1_df.shape[0] + 1
-        max_row_rafm2 = rafm2_df.shape[0] + 1
-        max_row_manual = manual_df.shape[0] + 1
+    for row_idx in range(1, nrows):  # mulai dari baris ke-2 (Excel row 2)
+        row_excel = row_idx + 1
 
-        for row_idx in range(1, nrows):
-            row_b = f"$B{row_idx+1}"
-            row_c = f"$C{row_idx+1}"
-            row_d = f"$D{row_idx+1}"
+        # Kolom mulai berbeda untuk trad / ul / reas
+        if jenis == 'trad':
+            start_col_idx = 4  # E (0-based index)
+            # Offset kolom di sheet sumber (trad: CF ARGO kolom ke-3 = C, RAFM kolom ke-7 = G, dll)
+            cf_argo_col_offset = 2  # kolom C (index 2)
+            cf_rafm_col_offset = 6  # kolom G (index 6)
+            rafm_manual_col_offset = 2  # kolom C (index 2)
+            uvsg_col_offset = 6  # kolom G (index 6)
+        elif jenis == 'ul':
+            start_col_idx = 3  # D (0-based index)
+            cf_argo_col_offset = 2  # kolom C (index 2)
+            cf_rafm_col_offset = 5  # kolom F (index 5)
+            rafm_manual_col_offset = 2  # kolom C (index 2)
+        else:  # reas
+            start_col_idx = 3  # D (0-based index)
+            cf_argo_col_offset = 2  # kolom C (index 2)
+            cf_rafm_col_offset = 2  # kolom C (index 2)
+            rafm_manual_col_offset = 2  # kolom C (index 2)
+
+        for col_idx in range(start_col_idx, ncols):
+            # Hitung offset relatif dari kolom mulai
+            relative_offset = col_idx - start_col_idx
             
-            for col_idx in range(4, ncols):
-                col_letter = xl_col_to_name(col_idx)
-                col_header = f"{col_letter}$1"
+            # Kolom di sheet sumber bergerak sesuai offset
+            if jenis == 'trad':
+                cf_argo_col = xl_col_to_name(cf_argo_col_offset + relative_offset)
+                cf_rafm_col = xl_col_to_name(cf_rafm_col_offset + relative_offset)
+                rafm_manual_col = xl_col_to_name(rafm_manual_col_offset + relative_offset)
+                uvsg_col = xl_col_to_name(uvsg_col_offset + relative_offset)
                 
                 formula = (
-                    f"=IFERROR(INDEX('{cf_sheet}'!$C$2:${max_col_cf}${max_row_cf}, MATCH({row_b}, '{cf_sheet}'!$B$2:$B${max_row_cf}, 0), MATCH({col_header}, '{cf_sheet}'!$C$1:${max_col_cf}$1, 0)),0)"
-                    f"-IFERROR(INDEX('{rafm_sheet_1}'!$G$2:${max_col_rafm1}${max_row_rafm1}, MATCH({row_c}, '{rafm_sheet_1}'!$B$2:$B${max_row_rafm1}, 0), MATCH({col_header}, '{rafm_sheet_1}'!$G$1:${max_col_rafm1}$1, 0)),0)"
-                    f"+IFERROR(INDEX('{manual_sheet}'!$C$2:${max_col_manual}${max_row_manual}, MATCH({row_c}, '{manual_sheet}'!$B$2:$B${max_row_manual}, 0), MATCH({col_header}, '{manual_sheet}'!$C$1:${max_col_manual}$1, 0)),0)"
-                    f"-IFERROR(INDEX('{rafm_sheet_2}'!$G$2:${max_col_rafm2}${max_row_rafm2}, MATCH({row_d}, '{rafm_sheet_2}'!$B$2:$B${max_row_rafm2}, 0), MATCH({col_header}, '{rafm_sheet_2}'!$G$1:${max_col_rafm2}$1, 0)),0)"
+                    f"='{sheet_names['trad']['cf_argo']}'!{cf_argo_col}{row_excel}"
+                    f"-'{sheet_names['trad']['cf_rafm']}'!{cf_rafm_col}{row_excel}"
+                    f"+'{sheet_names['trad']['rafm_manual']}'!{rafm_manual_col}{row_excel}"
+                    f"-'{sheet_names['trad']['uvsg']}'!{uvsg_col}{row_excel}"
                 )
-                worksheet.write_formula(row_idx, col_idx, formula)
 
-    elif jenis == 'ul':
-        cf_sheet = 'CF ARGO AZUL'
-        rafm_sheet = 'RAFM Output AZUL'
-        manual_sheet = 'RAFM Output Manual'
-
-        cf_df = result[cf_sheet]
-        rafm_df = result[rafm_sheet]
-        manual_df = result[manual_sheet]
-        
-        max_col_cf = xl_col_to_name(cf_df.shape[1] - 1)
-        max_col_rafm = xl_col_to_name(rafm_df.shape[1] - 1)
-        max_col_manual = xl_col_to_name(manual_df.shape[1] - 1)
-
-        max_row_cf = cf_df.shape[0] + 1
-        max_row_rafm = rafm_df.shape[0] + 1
-        max_row_manual = manual_df.shape[0] + 1
-
-        for row_idx in range(1, nrows):
-            row_b = f"$B{row_idx+1}"
-            row_c = f"$C{row_idx+1}"
-            
-            for col_idx in range(3, ncols):
-                col_letter = xl_col_to_name(col_idx)
-                col_header = f"{col_letter}$1"
+            elif jenis == 'ul':
+                cf_argo_col = xl_col_to_name(cf_argo_col_offset + relative_offset)
+                cf_rafm_col = xl_col_to_name(cf_rafm_col_offset + relative_offset)
+                rafm_manual_col = xl_col_to_name(rafm_manual_col_offset + relative_offset)
                 
                 formula = (
-                    f"="
-                    f"IF(OR(ISNUMBER(SEARCH(\"clm_base\",{col_header})),ISNUMBER(SEARCH(\"clm_pro\",{col_header})),ISNUMBER(SEARCH(\"clm_hth\",{col_header}))),"
-                    f"IFERROR(INDEX('{cf_sheet}'!$C$2:${max_col_cf}${max_row_cf}, MATCH({row_b}, '{cf_sheet}'!$B$2:$B${max_row_cf}, 0), MATCH({col_header}, '{cf_sheet}'!$C$1:${max_col_cf}$1, 0))/3,0),"
-                    f"IFERROR(INDEX('{cf_sheet}'!$C$2:${max_col_cf}${max_row_cf}, MATCH({row_b}, '{cf_sheet}'!$B$2:$B${max_row_cf}, 0), MATCH({col_header}, '{cf_sheet}'!$C$1:${max_col_cf}$1, 0)),0))"
-                    f"-IFERROR(INDEX('{rafm_sheet}'!$C$2:${max_col_rafm}${max_row_rafm}, MATCH({row_c}, '{rafm_sheet}'!$B$2:$B${max_row_rafm}, 0), MATCH({col_header}, '{rafm_sheet}'!$C$1:${max_col_rafm}$1, 0)),0)"
-                    f"-IFERROR(INDEX('{manual_sheet}'!$C$2:${max_col_manual}${max_row_manual}, MATCH({row_c}, '{manual_sheet}'!$B$2:$B${max_row_manual}, 0), MATCH({col_header}, '{manual_sheet}'!$C$1:${max_col_manual}$1, 0)),0)"
-                    f"-IF(ISNUMBER(SEARCH(\"lrc_cl_inv_surr\",{col_header})),"
-                    f"IFERROR(INDEX('{rafm_sheet}'!$C$2:${max_col_rafm}${max_row_rafm}, MATCH({row_c}, '{rafm_sheet}'!$B$2:$B${max_row_rafm}, 0), MATCH(\"tab_ph\", '{rafm_sheet}'!$C$1:${max_col_rafm}$1, 0)),0),0)"
+                    f"='{sheet_names['ul']['cf_argo']}'!{cf_argo_col}{row_excel}"
+                    f"-'{sheet_names['ul']['cf_rafm']}'!{cf_rafm_col}{row_excel}"
+                    f"-'{sheet_names['ul']['rafm_manual']}'!{rafm_manual_col}{row_excel}"
                 )
-                worksheet.write_formula(row_idx, col_idx, formula)
 
-    elif jenis == 'reas':
-        cf_sheet = 'CF ARGO REAS'
-        rafm_sheet = 'RAFM Output REAS'
-        manual_sheet = 'RAFM Output Manual'
-
-        cf_df = result[cf_sheet]
-        rafm_df = result[rafm_sheet]
-        manual_df = result[manual_sheet]
-        
-        max_col_cf = xl_col_to_name(cf_df.shape[1] - 1)
-        max_col_rafm = xl_col_to_name(rafm_df.shape[1] - 1)
-        max_col_manual = xl_col_to_name(manual_df.shape[1] - 1)
-
-        max_row_cf = cf_df.shape[0] + 1
-        max_row_rafm = rafm_df.shape[0] + 1
-        max_row_manual = manual_df.shape[0] + 1
-
-        for row_idx in range(1, nrows):
-            row_b = f"$B{row_idx+1}"
-            row_c = f"$C{row_idx+1}"
-            
-            for col_idx in range(3, ncols):
-                col_letter = xl_col_to_name(col_idx)
-                col_header = f"{col_letter}$1"
+            elif jenis == 'reas':
+                cf_argo_col = xl_col_to_name(cf_argo_col_offset + relative_offset)
+                cf_rafm_col = xl_col_to_name(cf_rafm_col_offset + relative_offset)
+                rafm_manual_col = xl_col_to_name(rafm_manual_col_offset + relative_offset)
                 
                 formula = (
-                    f"=IFERROR(INDEX('{cf_sheet}'!$C$2:${max_col_cf}${max_row_cf}, MATCH({row_b}, '{cf_sheet}'!$B$2:$B${max_row_cf}, 0), MATCH({col_header}, '{cf_sheet}'!$C$1:${max_col_cf}$1, 0)),0)"
-                    f"-IFERROR(INDEX('{rafm_sheet}'!$C$2:${max_col_rafm}${max_row_rafm}, MATCH({row_c}, '{rafm_sheet}'!$B$2:$B${max_row_rafm}, 0), MATCH({col_header}, '{rafm_sheet}'!$C$1:${max_col_rafm}$1, 0)),0)"
-                    f"-IFERROR(INDEX('{manual_sheet}'!$C$2:${max_col_manual}${max_row_manual}, MATCH({row_c}, '{manual_sheet}'!$B$2:$B${max_row_manual}, 0), MATCH({col_header}, '{manual_sheet}'!$C$1:${max_col_manual}$1, 0)),0)"
+                    f"='{sheet_names['reas']['cf_argo']}'!{cf_argo_col}{row_excel}"
+                    f"-'{sheet_names['reas']['cf_rafm']}'!{cf_rafm_col}{row_excel}"
+                    f"+'{sheet_names['reas']['rafm_manual']}'!{rafm_manual_col}{row_excel}"
                 )
-                worksheet.write_formula(row_idx, col_idx, formula)
+
+            worksheet.write_formula(row_idx, col_idx, formula)
 
 
 def process_input_file(file_path):
@@ -238,83 +216,6 @@ def process_input_file(file_path):
                     nrows = df_sheet.shape[0]
                 
                 write_checking_summary_formulas(worksheet, df_sheet, result, jenis, nrows, ncols)
-
-        if 'RAFM Output AZTRAD' in result and jenis == 'trad':
-            rafm_sheet_name = 'RAFM Output AZTRAD'
-            worksheet = writer.sheets[rafm_sheet_name]
-            rafm_df = result[rafm_sheet_name]
-            
-            start_col_idx = 6
-            nrows, ncols = rafm_df.shape
-            names = rafm_df.iloc[:, 1].astype(str)
-            
-            runs = ["Data_Extraction_run11TRAD", "Data_Extraction_run21TRAD",
-                    "Data_Extraction_run31TRAD", "Data_Extraction_run41TRAD"]
-            
-            for row_idx in range(nrows):
-                current_name = names.iloc[row_idx]
-                for i, run_name in enumerate(runs):
-                    if current_name.startswith(run_name) and not current_name.endswith('_ori'):
-                        ori_names = [f"{r}*_ori" for r in runs[:i+1]]
-                        formula_parts = []
-                        for ori in ori_names:
-                            formula_parts.append(
-                                f"IFERROR(INDEX($G$2:${xl_col_to_name(ncols-1)}${nrows+1}, MATCH(\"{ori}\",$B$2:$B${nrows+1},0), COLUMN()-COLUMN($G$1)+1),0)"
-                            )
-                        formula = "= " + " + ".join(formula_parts)
-                        for col_idx in range(start_col_idx, ncols):
-                            worksheet.write_formula(row_idx+1, col_idx, formula)
-        
-        if 'RAFM Output AZUL' in result and jenis == 'ul':
-            rafm_sheet_name = 'RAFM Output AZUL'
-            worksheet = writer.sheets[rafm_sheet_name]
-            rafm_df = result[rafm_sheet_name]
-            
-            start_col_idx = 5
-            nrows, ncols = rafm_df.shape
-            names = rafm_df.iloc[:, 1].astype(str)
-            
-            runs = ["Data_Extraction_run11UL", "Data_Extraction_run21UL",
-                    "Data_Extraction_run31UL", "Data_Extraction_run41UL"]
-            
-            for row_idx in range(nrows):
-                current_name = names.iloc[row_idx]
-                for i, run_name in enumerate(runs):
-                    if current_name.startswith(run_name) and not current_name.endswith('_ori'):
-                        ori_names = [f"{r}*_ori" for r in runs[:i+1]]
-                        formula_parts = []
-                        for ori in ori_names:
-                            formula_parts.append(
-                                f"IFERROR(INDEX($F$2:${xl_col_to_name(ncols-1)}${nrows+1}, MATCH(\"{ori}\",$B$2:$B${nrows+1},0), COLUMN()-COLUMN($F$1)+1),0)"
-                            )
-                        formula = "= " + " + ".join(formula_parts)
-                        for col_idx in range(start_col_idx, ncols):
-                            worksheet.write_formula(row_idx+1, col_idx, formula)
-        
-        if 'RAFM Output REAS' in result and jenis == 'reas':
-            rafm_sheet_name = 'RAFM Output REAS'
-            worksheet = writer.sheets[rafm_sheet_name]
-            rafm_df = result[rafm_sheet_name]
-            
-            start_col_idx = 2
-            nrows, ncols = rafm_df.shape
-            names = rafm_df.iloc[:, 1].astype(str)
-            
-            runs = ["run11", "run21", "run31", "run41"]
-            
-            for row_idx in range(nrows):
-                current_name = names.iloc[row_idx]
-                for i, run_name in enumerate(runs):
-                    if current_name.startswith(run_name) and not current_name.endswith('_ori'):
-                        ori_names = [f"{r}*_ori" for r in runs[:i+1]]
-                        formula_parts = []
-                        for ori in ori_names:
-                            formula_parts.append(
-                                f"IFERROR(INDEX($C$2:${xl_col_to_name(ncols-1)}${nrows+1}, MATCH(\"{ori}\",$B$2:$B${nrows+1},0), COLUMN()-COLUMN($C$1)+1),0)"
-                            )
-                        formula = "= " + " + ".join(formula_parts)
-                        for col_idx in range(start_col_idx, ncols):
-                            worksheet.write_formula(row_idx+1, col_idx, formula)
 
     print(f"✅ Output disimpan di: {output_file}")
 

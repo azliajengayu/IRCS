@@ -435,9 +435,6 @@ def main(params):
     
     cf_argo = cf_argo.rename(columns={'File_Name': 'ARGO File Name'})
     
-    mask = code['RAFM File Name'].astype(str).str.contains('_ori', regex=True, na=False)
-    code = code[~mask].copy()
-    
     cf_argo = pd.merge(code, cf_argo, on='ARGO File Name', how='left')
     
     columns_to_drop = [col for col in ['RAFM File Name', 'UVSG File Name'] if col in cf_argo.columns]
@@ -467,27 +464,17 @@ def main(params):
         combined_row = {**main_row, **add_row, **csar_row}
         combined_summary.append(combined_row)
 
-    all_runs = ['11', '21', '31', '41']
-    pattern = '|'.join([f'run{r}' for r in all_runs])
-    combined_summary = pd.DataFrame(combined_summary)
-    
-    def add_ori_if_run(x):
-        for r in all_runs:
-            if re.search(fr'run_?{r}', x, re.IGNORECASE):
-                return x + "_ori"
-        return x
-    
-    combined_summary['File_Name'] = combined_summary['File_Name'].apply(add_ori_if_run)
-    cf_rafm_1 = combined_summary.copy()
-    cols = ['File_Name'] + [col for col in cf_rafm_1.columns if col != 'File_Name']
-    cf_rafm_1 = cf_rafm_1[cols]
+    cf_rafm_1 = pd.DataFrame(combined_summary)
+
+    if not cf_rafm_1.empty and 'File_Name' in cf_rafm_1.columns:
+        cols = ['File_Name'] + [col for col in cf_rafm_1.columns if col != 'File_Name']
+        cf_rafm_1 = cf_rafm_1[cols]
 
     code_rafm = code.copy()
     if 'UVSG File Name' in code_rafm.columns:
         code_rafm = code_rafm.drop(columns=['UVSG File Name'])
     
     cf_rafm = cf_rafm_1.rename(columns={'File_Name': 'RAFM File Name'})
-    run1_ori = cf_rafm[cf_rafm['RAFM File Name'].str.contains(pattern, case=False, na=False)]
     cf_rafm_merge = pd.merge(code_rafm, cf_rafm, on="RAFM File Name", how="left")
     cf_rafm_merge.fillna(0, inplace=True)
 
@@ -513,8 +500,7 @@ def main(params):
         cf_rafm = cf_rafm_merge.drop(columns=columns_to_drop)
     else:
         cf_rafm = cf_rafm_merge.copy()
-    
-    cf_rafm = pd.concat([cf_rafm, run1_ori], ignore_index=True)
+
     if 'period' in cf_rafm.columns:
         cf_rafm = cf_rafm.drop(columns=['period'])
     
@@ -668,6 +654,26 @@ def main(params):
     index_labels_uvsg = list(range(1, len(uvsg)+1))
     uvsg.insert(0, 'No', index_labels_uvsg)
     
+    columns_name_argo = list(cf_argo.columns[:2])
+    columns_cf_argo =  columns_name_argo + cols_to_compare
+    columns_cf_argo = [k for k in columns_cf_argo if k in cf_argo.columns]
+    cf_argo = cf_argo[columns_cf_argo]
+
+    columns_name_rafm = list(cf_rafm.columns[:6])
+    columns_cf_rafm =  columns_name_rafm + cols_to_compare
+    columns_cf_rafm = [k for k in columns_cf_rafm if k in cf_rafm.columns]
+    cf_rafm = cf_rafm[columns_cf_rafm]
+
+    columns_name_manual = list(rafm_manual.columns[:2])
+    columns_rafm_manual =  columns_name_manual + cols_to_compare
+    columns_rafm_manual = [k for k in columns_rafm_manual if k in rafm_manual.columns]
+    rafm_manual = rafm_manual[columns_rafm_manual]
+
+    columns_name_uvsg = list(uvsg.columns[:6])
+    columns_uvsg =  columns_name_uvsg + cols_to_compare
+    columns_uvsg = [k for k in columns_uvsg if k in uvsg.columns]
+    uvsg = uvsg[columns_uvsg]  
+
     return {
         'Control': control,
         'Code': mapping,

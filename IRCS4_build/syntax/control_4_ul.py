@@ -253,9 +253,6 @@ def main(params):
     cf_argo = pd.DataFrame(summary_rows_argo)
     cf_argo = cf_argo.rename(columns={'File_Name': 'ARGO File Name'})
     
-    mask = code['RAFM File Name'].astype(str).str.contains('_ori', regex=True, na=False)
-    code = code[~mask].copy()
-    
     cf_argo = pd.merge(code, cf_argo, on='ARGO File Name', how='left')
     
     columns_to_drop = [col for col in ['RAFM File Name', 'UVSG File Name'] if col in cf_argo.columns]
@@ -287,23 +284,12 @@ def main(params):
         combined_row = {**main_row, **add_row}
         combined_summary.append(combined_row)
 
-    all_runs = ['11', '21', '31', '41']
-    pattern = '|'.join([f'run{r}' for r in all_runs])
-    combined_summary = pd.DataFrame(combined_summary)
-    
-    def add_ori_if_run(x):
-        for r in all_runs:
-            if re.search(fr'run_?{r}', x, re.IGNORECASE):
-                return x + "_ori"
-        return x
-    
-    combined_summary['File_Name'] = combined_summary['File_Name'].apply(add_ori_if_run)
-    cf_rafm_1 = combined_summary.copy()
-    cols = ['File_Name'] + [col for col in cf_rafm_1.columns if col != 'File_Name']
-    cf_rafm_1 = cf_rafm_1[cols]
+    cf_rafm = pd.DataFrame(combined_summary)
+    if not cf_rafm.empty and 'File_Name' in cf_rafm.columns:
+        cols = ['File_Name'] + [col for col in cf_rafm.columns if col != 'File_Name']
+        cf_rafm = cf_rafm[cols]
     
     cf_rafm = pd.DataFrame(combined_summary).rename(columns={'File_Name': 'RAFM File Name'})
-    run1_ori = cf_rafm[cf_rafm['RAFM File Name'].str.contains(pattern, case=False, na=False)]
     cf_rafm_merge = pd.merge(code, cf_rafm, on="RAFM File Name", how="left").fillna(0)
     cf_rafm_merge.fillna(0, inplace=True)
 
@@ -325,8 +311,7 @@ def main(params):
         cf_rafm = cf_rafm_merge.drop(columns=columns_to_drop)
     else:
         cf_rafm = cf_rafm_merge.copy()
-    
-    cf_rafm = pd.concat([cf_rafm, run1_ori], ignore_index=True)
+
     if 'period' in cf_rafm.columns:
         cf_rafm = cf_rafm.drop(columns=['period'])
     
@@ -404,7 +389,22 @@ def main(params):
     
     index_labels_rafm = list(range(1, len(cf_rafm)+1))
     cf_rafm.insert(0, 'No', index_labels_rafm)
-    
+
+    columns_name_argo = list(cf_argo.columns[:2])
+    columns_cf_argo =  columns_name_argo + columns_to_sum_argo
+    columns_cf_argo = [k for k in columns_cf_argo if k in cf_argo.columns]
+    cf_argo = cf_argo[columns_cf_argo]
+
+    columns_name_rafm = list(cf_rafm.columns[:5])
+    columns_cf_rafm =  columns_name_rafm + columns_to_sum_argo
+    columns_cf_rafm = [k for k in columns_cf_rafm if k in cf_rafm.columns]
+    cf_rafm = cf_rafm[columns_cf_rafm]
+
+    columns_name_manual = list(rafm_manual.columns[:2])
+    columns_rafm_manual =  columns_name_manual + columns_to_sum_argo
+    columns_rafm_manual = [k for k in columns_rafm_manual if k in rafm_manual.columns]
+    rafm_manual = rafm_manual[columns_rafm_manual]
+
     return {
         'Control': control,
         'Code': mapping,
