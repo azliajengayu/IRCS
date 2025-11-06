@@ -20,6 +20,14 @@ columns_to_sum_rafm = [
     'lrc_cl_inv_surr','lrc_cl_inv_mat','clm_base','clm_pro','clm_hth','tab_ph'
 ]
 
+columns_to_compare_rafm = [
+    'prm_inc','lrc_cl_ins','lrc_cl_inv','r_exp_m','r_acq_cost',
+    'cov_units','dac_cov_units','dac','nattr_exp_acq','nattr_exp_inv',
+    'nattr_exp_maint','nattr_exp','tab_dedn','u_sar','pv_r_exp_m','pv_surr','pv_pw_n','pv_clm_surr_pw_n',
+    'lrc_cl_ins_dth','lrc_cl_inv_dth','lrc_cl_inv_surr','lrc_cl_inv_mat',
+    'clm_base','clm_pro','clm_hth','nattr_exp_maint_inv','tab_ph'
+]
+
 additional_columns = ['pv_pw_n','cov_units', 'u_sar', 'pv_r_exp_m', 'pv_surr']
 target_sheets = ['extraction_IDR', 'extraction_USD']
 global_filter_rafm = None
@@ -238,11 +246,20 @@ def main(params):
     path_map = dict(zip(file_path_df['Name'].str.lower(), file_path_df['File Path']))
     folder_path_argo = path_map.get('argo', '')
     folder_path_rafm = path_map.get('rafm', '')
-    rafm_manual_path = path_map.get('rafm manual', '')
+
+    argo_files_from_code = set(code['ARGO File Name'].astype(str).str.strip().str.lower())
+    rafm_files_from_code = set(code['RAFM File Name'].astype(str).str.strip().str.lower())
 
     file_paths_argo = [
         f for f in glob.glob(os.path.join(folder_path_argo, '*.xlsx'))
-        if not os.path.basename(f).startswith('~')
+        if os.path.splitext(os.path.basename(f))[0].lower() in argo_files_from_code
+        and not os.path.basename(f).startswith('~$')
+    ]
+
+    file_paths_rafm = [
+        f for f in glob.glob(os.path.join(folder_path_rafm, '*.xlsx'))
+        if os.path.splitext(os.path.basename(f))[0].lower() in rafm_files_from_code
+        and not os.path.basename(f).startswith('~$')
     ]
 
     optimal_workers = min(os.cpu_count() or 4, max(len(file_paths_argo), 1))
@@ -263,8 +280,6 @@ def main(params):
         cols = ['ARGO File Name'] + [col for col in cf_argo.columns if col != 'ARGO File Name']
         cf_argo = cf_argo[cols]
 
-    file_paths_rafm = [f for f in glob.glob(os.path.join(folder_path_rafm, '*.xlsx')) 
-                       if not os.path.basename(f).startswith('~')]
     file_entries = [(f, os.path.splitext(os.path.basename(f))[0], global_filter_rafm)
                     for f in file_paths_rafm]
 
@@ -321,9 +336,6 @@ def main(params):
     cf_rafm['nattr_exp_maint_inv'] = cf_rafm[['nattr_exp_inv', 'nattr_exp_maint']].sum(axis=1)
     cf_rafm['dac_cov_units'] = cf_rafm['cov_units']
 
-    rafm_manual = pd.read_excel(rafm_manual_path, sheet_name='Sheet1').drop(
-        columns=['No','Update (Y/N)','Shift Dur','Cohort'])
-    rafm_manual = rafm_manual.rename(columns={'c_sar': 'u_sar'}).fillna(0)
     
     final = code.copy()
     for col in columns_to_sum_argo:
@@ -373,8 +385,7 @@ def main(params):
     cf_argo = pd.concat([cf_argo, sign_logic], ignore_index=True)
     cf_argo.loc[cf_argo.index[-1], 'ARGO File Name'] = 'Sign Logic'
     
-    index_labels_manual = list(range(1, len(rafm_manual)+1))
-    rafm_manual.insert(0, 'No', index_labels_manual)
+
     index_labels_final = list(range(1, len(final)+1))
     final.insert(0, 'No', index_labels_final)
 
@@ -396,21 +407,15 @@ def main(params):
     cf_argo = cf_argo[columns_cf_argo]
 
     columns_name_rafm = list(cf_rafm.columns[:5])
-    columns_cf_rafm =  columns_name_rafm + columns_to_sum_argo
+    columns_cf_rafm =  columns_name_rafm + columns_to_compare_rafm
     columns_cf_rafm = [k for k in columns_cf_rafm if k in cf_rafm.columns]
     cf_rafm = cf_rafm[columns_cf_rafm]
-
-    columns_name_manual = list(rafm_manual.columns[:2])
-    columns_rafm_manual =  columns_name_manual + columns_to_sum_argo
-    columns_rafm_manual = [k for k in columns_rafm_manual if k in rafm_manual.columns]
-    rafm_manual = rafm_manual[columns_rafm_manual]
 
     return {
         'Control': control,
         'Code': mapping,
         "CF ARGO AZUL": cf_argo,
         "RAFM Output AZUL": cf_rafm,
-        "RAFM Output Manual": rafm_manual,
         "Checking Summary AZUL": final
     }
 
