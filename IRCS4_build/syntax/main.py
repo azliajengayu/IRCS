@@ -99,21 +99,17 @@ def apply_border_xlwings(ws, df_sheet):
             pass
 
 
-def apply_accounting_to_all_xlwings(ws, df_sheet):
-    if not hasattr(df_sheet, 'columns'):
-        return
-    nrows = len(df_sheet) + 1
+def apply_accounting_to_all_xlwings(ws, df_sheet, start_row=2):
+    nrows = len(df_sheet) + start_row - 1
     ncols = len(df_sheet.columns)
-    for col_idx in range(1, ncols + 1):
-        col_letter = get_column_letter(col_idx)
+
+    for col_idx in range(1, ncols+1):
         try:
-            data_range = ws.range(f'{col_letter}2:{col_letter}{nrows}')
-            data_range.number_format = '_-* #,##0_-;_-* (#,##0);_-* "-"_-;_-@_-'
-        except Exception:
-            try:
-                ws.api.Range(f'{col_letter}2:{col_letter}{nrows}').NumberFormat = '_-* #,##0_-;_-* (#,##0);_-* "-"_-;_-@_-'
-            except Exception:
-                pass
+            for row_idx in range(start_row, nrows+1):
+                cell = ws.api.Cells(row_idx, col_idx)
+                cell.NumberFormat = '_-* #,##0_-;_-* (#,##0);_-* "-"_-;_-@_-'
+        except Exception as e:
+            print(f"⚠️ Failed to apply accounting format to cell ({row_idx}, {col_idx}): {e}")
 
 
 def write_checking_summary_formulas_xlwings(ws, df_sheet, jenis, start_row=2):
@@ -276,8 +272,8 @@ def add_sheets_to_rafm_manual(rafm_manual_path, result_dict, output_path, output
                 auto_adjust_column_width_xlwings(ws, df)
 
                 if sheet_name.startswith("Checking Summary"):
-                    write_checking_summary_formulas_xlwings(ws, df, jenis)
-                    apply_accounting_to_all_xlwings(ws, df)
+                    write_checking_summary_formulas_xlwings(ws, df, jenis, start_row = 2)
+                    apply_accounting_to_all_xlwings(ws, df, start_row = 2)
 
             try:
                 ws.autofit(axis='columns')
@@ -304,7 +300,7 @@ def add_sheets_to_rafm_manual(rafm_manual_path, result_dict, output_path, output
         app = None
         wb = None
 
-        print(f"✅ Selesai: {output_file}")
+        print(f"✅ Done : {output_file}")
         return output_file
 
     except Exception as e:
@@ -395,12 +391,12 @@ def main(input_path):
             fail_count += 1
     elapsed = time.time() - start_time
     print("\n" + "="*60)
-    print(f"⏱️ Total Time: {elapsed:.2f} detik")
+    print(f"⏱️ Total Runtime: {elapsed:.2f} detik")
     print(f"📊 Total: {len(files)} file(s)")
     print(f"✅ Success: {success_count}")
     print(f"❌ Failed: {fail_count}")
     if len(files) > 0:
-        print(f"⚡ Avg: {elapsed/len(files):.2f} detik/file")
+        print(f"⚡ Avg: {elapsed/len(files):.2f} Second/file")
     print("="*60)
 
 

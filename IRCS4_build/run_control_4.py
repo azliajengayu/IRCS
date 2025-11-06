@@ -2,7 +2,7 @@ from syntax.main import main
 import time
 import datetime
 
-input_path = r"P:\13. Employee Folder\Christo\control 4\Q3 25\input excel\input trad con.xlsx"
+input_path = r"P:\13. Employee Folder\Christo\control 4\Q3 25\input excel\input ul sha.xlsx"
 
 if __name__ == "__main__":
     print("🚀 Starting program...")
