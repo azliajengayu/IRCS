@@ -313,8 +313,9 @@ tradsha_azcp_cleaned = tradsha_azcp_cleaned.drop(columns=["POLICY_START_DATE"])
 
 merged_azcp = pd.concat([tradcon_azcp_cleaned,tradsha_azcp_cleaned])
 merged_azcp = merged_azcp[merged_azcp["POLICY_REF"].isin(acp["POLICY_REF"])]
+merged_azcp = pd.merge(acp,merged_azcp, on ='POLICY_REF', how = 'left')
 merged_azcp["bonus"] = np.where(
-    merged_azcp["SUM_INSURED"] >= 4000000000,
+    (merged_azcp["SUM_INSURED"] >= 4000000000) & (merged_azcp['Batch'] == 2),
     400000000,
     0
 )
