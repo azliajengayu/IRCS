@@ -252,15 +252,15 @@ campaign_total = campaign.merge(merged_trad,
 campaign_total = campaign_total.fillna(0)
 campaign_total = campaign_total.drop("POLICY_REF", axis=1)
 
-lookup = pd.read_excel(input_sheet.CODE_LIBRARY_path,sheet_name = ["Campaign Lookup"],engine="openpyxl")
-lookup = lookup["Campaign Lookup"]
+lookup = pd.read_excel(input_sheet.CODE_LIBRARY_path,sheet_name = ["LGC LGM Campaign Lookup"],engine="openpyxl")
+lookup = lookup["LGC LGM Campaign Lookup"]
 campaign_total["SUM_INSURED"] = pd.to_numeric(campaign_total["SUM_INSURED"], errors="coerce")
 lookup["Max Bonus"] = pd.to_numeric(lookup["Max Bonus"], errors="coerce")
 
 campaign_total["key"] = campaign_total["campaign_type"].astype(str) + "_" + campaign_total["CURRENCY1"].astype(str)
-bonus = campaign_total.merge(lookup[["key", "Max Bonus"]], on="key", how="left")
+bonus = campaign_total.merge(lookup[["key", "Max Bonus","%SA bonus"]], on="key", how="left")
 
-bonus["calculated_bonus"] = bonus["SUM_INSURED"] * 0.1
+bonus["calculated_bonus"] = bonus["SUM_INSURED"] * bonus["%SA bonus"]
 bonus["Bonus SA"] = np.where(
     bonus["Max Bonus"].notna(),
     np.minimum(bonus["calculated_bonus"], bonus["Max Bonus"]),
@@ -270,7 +270,7 @@ bonus["Bonus SA"] = np.where(
 bonus["SA After Bonus"] = bonus["SUM_INSURED"]+bonus["Bonus SA"]
 bonus = bonus.drop(["key", "calculated_bonus","Max Bonus"], axis=1)
 
-summary = bonus.drop(columns=["Policy No","campaign_type","product","PRODUCT_CODE"])
+summary = bonus.drop(columns=["Policy No","campaign_type","product","PRODUCT_CODE","%SA bonus"])
 summary["Grouping Raw Data"] = summary["COVER_CODE"].str.replace("BASE_","",regex=False)+"_"+summary["CURRENCY1"]
 summary = summary.groupby(["Grouping Raw Data"],as_index=False).sum(numeric_only=True)
 
@@ -303,6 +303,9 @@ acp = read_csv_fallback(
 )
 acp = acp.rename(columns = {'Policy_No':'POLICY_REF'})
 
+lookup_azcp = pd.read_excel(input_sheet.CODE_LIBRARY_path,sheet_name = ["AZCP"],engine="openpyxl")
+lookup_azcp = lookup_azcp["AZCP"]
+
 tradcon_azcp = tradcon_input[tradcon_input['COVER_CODE'].str.contains('AZCP', case=False, na=False)]
 tradcon_azcp_cleaned = filter_by_month(tradcon_azcp, input_sheet.reporting_month, input_sheet.financial_year)
 tradcon_azcp_cleaned = tradcon_azcp_cleaned.drop(columns=["POLICY_START_DATE"])
@@ -313,20 +316,21 @@ tradsha_azcp_cleaned = tradsha_azcp_cleaned.drop(columns=["POLICY_START_DATE"])
 
 merged_azcp = pd.concat([tradcon_azcp_cleaned,tradsha_azcp_cleaned])
 merged_azcp = merged_azcp[merged_azcp["POLICY_REF"].isin(acp["POLICY_REF"])]
-merged_azcp = pd.merge(acp,merged_azcp, on ='POLICY_REF', how = 'left')
-merged_azcp["bonus"] = np.where(
-    (merged_azcp["SUM_INSURED"] >= 4000000000) & (merged_azcp['Batch'] == 2),
-    400000000,
+merged_azcp = pd.merge(acp,merged_azcp, on='POLICY_REF', how = 'left')
+merged_azcp = pd.merge(merged_azcp,lookup_azcp, on='Batch', how = 'left')
+merged_azcp["bonus_azcp"] = np.where(
+    (merged_azcp["SUM_INSURED"] >= merged_azcp["Greater than Or Equal To"]),
+    merged_azcp["Bonus"],
     0
 )
 
-merged_azcp = merged_azcp.drop(columns = ['POLICY_REF','COVER_CODE'])
+merged_azcp = merged_azcp.drop(columns = ['POLICY_REF','COVER_CODE','Bonus','Greater than Or Equal To'])
 merged_azcp['Grouping Raw Data'] = merged_azcp["PRODUCT_CODE"]+"_"+merged_azcp["CURRENCY1"]
 merged_azcp['PRODUCT_CD'] = 'BASE_'+merged_azcp['PRODUCT_CODE']
 merged_azcp["Grouping DV"] = merged_azcp["PRODUCT_CODE"].map(convert).fillna(merged_azcp["PRODUCT_CODE"])
 merged_azcp = merged_azcp.drop(columns = {'PRODUCT_CODE'})
-kolom = ['PRODUCT_CD','CURRENCY1','Grouping Raw Data','Grouping DV','SUM_INSURED','bonus']
-merged_azcp_header = merged_azcp.drop(columns = {'SUM_INSURED','bonus'})
+kolom = ['PRODUCT_CD','CURRENCY1','Grouping Raw Data','Grouping DV','SUM_INSURED','bonus_azcp']
+merged_azcp_header = merged_azcp.drop(columns = {'SUM_INSURED','bonus_azcp'})
 merged_azcp_sum = merged_azcp.drop(columns = {'CURRENCY1','Grouping Raw Data','PRODUCT_CD'})
 merged_azcp_sum = merged_azcp_sum.groupby(["Grouping DV"],as_index=False).sum(numeric_only=True)
 merged_azcp_header = merged_azcp_header.groupby(["CURRENCY1"]).first().reset_index()
